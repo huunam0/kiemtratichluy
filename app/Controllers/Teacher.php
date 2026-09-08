@@ -492,6 +492,72 @@ class Teacher extends BaseController
         ]);
     }
 
+    // --------------------------------------------------------------------
+    // RANDOM STUDENT PICKER (GỌI NGẪU NHIÊN HS KIỂM TRA THẬT)
+    // --------------------------------------------------------------------
+    public function randomPickStudents(int $testId)
+    {
+        $test = $this->testModel->find($testId);
+        if (!$test) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Bài kiểm tra không tồn tại.'], 404);
+        }
+
+        $quantity = (int)$this->request->getPost('quantity');
+        if ($quantity < 1) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Số lượng phải lớn hơn 0.'], 400);
+        }
+
+        // 1. Get all students in the class with their real test count
+        $students = $this->userModel->getStudentsByClass($test['class_id']);
+        if (empty($students)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Lớp học chưa có học sinh nào.']);
+        }
+
+        $studentData = [];
+        foreach ($students as $st) {
+            $realCount = $this->participantModel->countRealTestsByStudent((int)$st['id'], $testId);
+            $studentData[] = [
+                'id'         => $st['id'],
+                'full_name'  => $st['full_name'],
+                'username'   => $st['username'],
+                'real_count' => $realCount,
+            ];
+        }
+
+        // 2. Sort by real_count ascending
+        usort($studentData, function ($a, $b) {
+            return $a['real_count'] <=> $b['real_count'];
+        });
+
+        // 3. Find the median of real_count values
+        $counts = array_column($studentData, 'real_count');
+        $n = count($counts);
+        if ($n % 2 === 0) {
+            $median = ($counts[$n / 2 - 1] + $counts[$n / 2]) / 2;
+        } else {
+            $median = $counts[intdiv($n, 2)];
+        }
+
+        // 4. Filter students with real_count <= median
+        $pool = array_filter($studentData, function ($st) use ($median) {
+            return $st['real_count'] <= $median;
+        });
+        $pool = array_values($pool);
+
+        // 5. Shuffle and pick N students
+        shuffle($pool);
+        $picked = array_slice($pool, 0, min($quantity, count($pool)));
+
+        return $this->response->setJSON([
+            'status'       => 'success',
+            'picked'       => $picked,
+            'total_class'  => count($studentData),
+            'median'       => $median,
+            'pool_size'    => count($pool),
+            'requested'    => $quantity,
+        ]);
+    }
+
     public function studentScoreBreakdown(int $testId, int $studentId)
     {
         $test = $this->testModel->find($testId);

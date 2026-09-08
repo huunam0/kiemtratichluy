@@ -37,4 +37,20 @@ class SessionParticipantModel extends Model
                     ->orderBy('session_participants.submitted_at', 'ASC')
                     ->findAll();
     }
+
+    /**
+     * Count real test sessions a student has participated in for a specific test.
+     * Counts sessions where student submitted or was marked absent.
+     */
+    public function countRealTestsByStudent(int $studentId, int $testId): int
+    {
+        return (int) $this->join('test_sessions', 'test_sessions.id = session_participants.session_id')
+                          ->where('test_sessions.test_id', $testId)
+                          ->where('session_participants.student_id', $studentId)
+                          ->groupStart()
+                              ->where('session_participants.test_status', 'submitted')
+                              ->orWhere('session_participants.approval_status', 'absent')
+                          ->groupEnd()
+                          ->countAllResults();
+    }
 }

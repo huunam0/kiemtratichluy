@@ -44,6 +44,7 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->get('tests/pool/add/(:num)/(:num)', 'Teacher::addQuestionToPool/$1/$2');
     $routes->get('tests/pool/remove/(:num)/(:num)', 'Teacher::removeQuestionFromPool/$1/$2');
     $routes->get('tests/accumulated-scores/(:num)', 'Teacher::accumulatedScores/$1');
+    $routes->post('tests/random-pick/(:num)', 'Teacher::randomPickStudents/$1');
     $routes->get('tests/student-breakdown/(:num)/(:num)', 'Teacher::studentScoreBreakdown/$1/$2');
 
     // Real-Time Sessions
