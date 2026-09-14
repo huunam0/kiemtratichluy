@@ -27,6 +27,8 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->get('dashboard', 'Teacher::dashboard');
     $routes->get('approve-student/(:num)', 'Teacher::approveStudent/$1');
     $routes->get('reject-student/(:num)', 'Teacher::rejectStudent/$1');
+    $routes->get('approve-teacher/(:num)', 'Teacher::approveColleague/$1');
+    $routes->get('reject-teacher/(:num)', 'Teacher::rejectColleague/$1');
     
     // Classes
     $routes->match(['get', 'post'], 'classes', 'Teacher::classes');
@@ -56,6 +58,13 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->post('sessions/start/(:num)', 'Teacher::startSession/$1');
     $routes->post('sessions/end/(:num)', 'Teacher::endSession/$1');
     $routes->get('sessions/leaderboard/(:num)', 'Teacher::sessionLeaderboard/$1');
+
+    // Markdown Practice Quizzes Management
+    $routes->get('practice-quizzes', 'Teacher::practiceQuizzes');
+    $routes->match(['get', 'post'], 'practice-quizzes/create', 'Teacher::createPracticeQuiz');
+    $routes->match(['get', 'post'], 'practice-quizzes/edit/(:num)', 'Teacher::editPracticeQuiz/$1');
+    $routes->get('practice-quizzes/delete/(:num)', 'Teacher::deletePracticeQuiz/$1');
+    $routes->get('practice-quizzes/results/(:num)', 'Teacher::practiceQuizResults/$1');
 });
 
 // Student routes
@@ -75,6 +84,10 @@ $routes->group('student', ['filter' => 'role:student'], function ($routes) {
     $routes->get('mock-test/(:num)', 'Student::mockTest/$1');
     $routes->post('submit-mock-test', 'Student::submitMockTest');
 });
+
+// Public Practice Quiz routes (accessible via shared link)
+$routes->get('practice/(:segment)', 'PracticeQuiz::take/$1');
+$routes->post('practice/(:segment)/submit', 'PracticeQuiz::submit/$1');
 
 // API Polling routes
 $routes->group('api', function ($routes) {

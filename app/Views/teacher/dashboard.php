@@ -19,10 +19,10 @@
     </div>
 
     <!-- Quick Navigation Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <a href="<?= base_url('teacher/classes') ?>" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition flex items-center justify-between no-underline">
             <div>
-                <div class="text-xs text-gray-500 font-semibold uppercase">Lớp Học (Toàn Trường)</div>
+                <div class="text-xs text-gray-500 font-semibold uppercase">Lớp Học</div>
                 <div class="text-2xl font-black text-gray-900 mt-1"><?= count($classes) ?></div>
             </div>
             <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">
@@ -32,8 +32,8 @@
 
         <a href="<?= base_url('teacher/questions') ?>" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition flex items-center justify-between no-underline">
             <div>
-                <div class="text-xs text-gray-500 font-semibold uppercase">Ngân Hàng Câu Hỏi (Global)</div>
-                <div class="text-2xl font-black text-gray-900 mt-1"><?= count($questions) ?> <span class="text-xs text-indigo-600 font-normal">(<?= $my_questions ?> câu của tôi)</span></div>
+                <div class="text-xs text-gray-500 font-semibold uppercase">Ngân Hàng Câu Hỏi</div>
+                <div class="text-2xl font-black text-gray-900 mt-1"><?= count($questions) ?></div>
             </div>
             <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
                 <i class="fa-solid fa-database"></i>
@@ -42,13 +42,72 @@
 
         <a href="<?= base_url('teacher/tests') ?>" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition flex items-center justify-between no-underline">
             <div>
-                <div class="text-xs text-gray-500 font-semibold uppercase">Bài Kiểm Tra Tích Luỹ</div>
-                <div class="text-2xl font-black text-gray-900 mt-1">Kho Tích Luỹ</div>
+                <div class="text-xs text-gray-500 font-semibold uppercase">Kho Tích Luỹ</div>
+                <div class="text-2xl font-black text-gray-900 mt-1">Bài KT</div>
             </div>
             <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
                 <i class="fa-solid fa-layer-group"></i>
             </div>
         </a>
+
+        <a href="<?= base_url('teacher/practice-quizzes') ?>" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition flex items-center justify-between no-underline">
+            <div>
+                <div class="text-xs text-gray-500 font-semibold uppercase">Đề Luyện Tập Markdown</div>
+                <div class="text-2xl font-black text-gray-900 mt-1">Tự Do</div>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-file-code"></i>
+            </div>
+        </a>
+    </div>
+
+    <!-- Pending Teacher Approvals Section -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <h3 class="font-bold text-gray-900 text-lg flex items-center gap-2">
+                <i class="fa-solid fa-chalkboard-user text-indigo-600"></i>
+                Giáo Viên Mới Đăng Ký Chờ Duyệt Trong Trường (<?= count($pending_teachers ?? []) ?>)
+            </h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-gray-50 text-gray-600 text-xs uppercase font-semibold">
+                    <tr>
+                        <th class="ps-6">Họ Và Tên</th>
+                        <th>Tên Đăng Nhập</th>
+                        <th>Email</th>
+                        <th>Ngày Đăng Ký</th>
+                        <th class="text-end pe-6">Hành Động</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm">
+                    <?php if (empty($pending_teachers)): ?>
+                        <tr>
+                            <td colspan="5" class="text-center py-6 text-gray-400">
+                                Không có tài khoản Giáo viên nào đang chờ phê duyệt trong trường.
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($pending_teachers as $t): ?>
+                            <tr>
+                                <td class="ps-6 font-bold text-gray-900"><?= esc($t['full_name']) ?></td>
+                                <td><code class="bg-gray-100 px-2 py-0.5 rounded text-gray-800">@<?= esc($t['username']) ?></code></td>
+                                <td><?= esc($t['email']) ?></td>
+                                <td class="text-gray-500 text-xs"><?= date('H:i d/m/Y', strtotime($t['created_at'])) ?></td>
+                                <td class="text-end pe-6 space-x-2">
+                                    <a href="<?= base_url("teacher/approve-teacher/{$t['id']}") ?>" class="btn btn-indigo bg-indigo-600 hover:bg-indigo-700 text-white btn-sm rounded-lg font-bold shadow-sm">
+                                        <i class="fa-solid fa-check me-1"></i> Phê Duyệt Giáo Viên
+                                    </a>
+                                    <a href="<?= base_url("teacher/reject-teacher/{$t['id']}") ?>" class="btn btn-outline-danger btn-sm rounded-lg font-medium" onclick="return confirm('Bạn có chắc muốn từ chối tài khoản giáo viên này?')">
+                                        <i class="fa-solid fa-xmark me-1"></i> Từ Chối
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Pending Student Approvals Section -->

@@ -62,4 +62,24 @@ class UserModel extends Model
                     ->orderBy('users.id', 'DESC')
                     ->findAll();
     }
+
+    /**
+     * Get pending teacher accounts for a given school
+     * (used by teachers to approve/reject colleague accounts in their school).
+     */
+    public function getPendingTeachersBySchool(int $schoolId, int $excludeTeacherId = 0): array
+    {
+        $builder = $this->select('users.*, schools.name as school_name')
+                        ->join('schools', 'schools.id = users.school_id', 'left')
+                        ->where('users.school_id', $schoolId)
+                        ->where('users.role', 'teacher')
+                        ->where('users.status', 'pending')
+                        ->orderBy('users.id', 'DESC');
+
+        if ($excludeTeacherId > 0) {
+            $builder->where('users.id !=', $excludeTeacherId);
+        }
+
+        return $builder->findAll();
+    }
 }

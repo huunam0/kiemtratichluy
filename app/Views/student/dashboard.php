@@ -129,6 +129,39 @@
                 </tbody>
             </table>
         </div>
+    <!-- Markdown Practice Quizzes Available -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <h3 class="font-bold text-gray-900 text-lg flex items-center gap-2">
+                <i class="fa-solid fa-file-code text-purple-600"></i>
+                Đề Trắc Nghiệm Luyện Tập Tự Do (Markdown)
+            </h3>
+        </div>
+        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <?php if (empty($practice_quizzes)): ?>
+                <div class="col-span-2 text-center py-6 text-gray-400">
+                    Chưa có đề trắc nghiệm luyện tập tự do nào trong trường của bạn.
+                </div>
+            <?php else: ?>
+                <?php foreach ($practice_quizzes as $pq): ?>
+                    <div class="border border-gray-200 rounded-2xl p-4 hover:border-purple-300 hover:shadow-md transition flex flex-col justify-between space-y-3">
+                        <div>
+                            <span class="badge bg-purple-100 text-purple-700 font-semibold px-2.5 py-1 rounded-lg text-xs mb-1">
+                                <?= esc($pq['subject']) ?> - Khối <?= esc($pq['grade_level']) ?>
+                            </span>
+                            <h4 class="font-bold text-gray-900 text-base mb-1"><?= esc($pq['title']) ?></h4>
+                            <p class="text-xs text-gray-500 mb-0">Giáo viên: <?= esc($pq['teacher_name'] ?? 'Giáo viên') ?></p>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-t border-gray-100">
+                            <span class="text-xs text-gray-400"><i class="fa-solid fa-infinity text-purple-500 me-1"></i> Làm bài tự do</span>
+                            <a href="<?= base_url("practice/{$pq['slug']}") ?>" target="_blank" class="btn bg-purple-600 hover:bg-purple-700 text-white font-bold btn-sm rounded-xl px-3 py-1.5 no-underline">
+                                <i class="fa-solid fa-pen-nib me-1"></i> Vào Luyện Tập
+                            </a>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
     </div>
 
 </div>

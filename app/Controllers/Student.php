@@ -73,10 +73,15 @@ class Student extends BaseController
             }
         }
 
+        $markdownQuizModel = new \App\Models\MarkdownQuizModel();
+        $schoolId = session()->get('school_id');
+        $practiceQuizzes = $markdownQuizModel->getQuizzesBySchool($schoolId);
+
         return view('student/dashboard', [
             'classes'            => $classes,
             'active_sessions'    => $activeSessions,
             'accumulated_scores' => $accumulatedScores,
+            'practice_quizzes'   => $practiceQuizzes,
         ]);
     }
 

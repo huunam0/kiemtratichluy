@@ -39,10 +39,7 @@ class Auth extends BaseController
 
             if ($user && password_verify($password, $user['password_hash'])) {
                 if ($user['status'] === 'pending') {
-                    $msg = ($user['role'] === 'teacher') 
-                        ? 'Tài khoản Giáo viên của bạn đang chờ Quản trị viên (Admin) phê duyệt.' 
-                        : 'Tài khoản Học sinh của bạn đang chờ Giáo viên trong trường phê duyệt.';
-                    return redirect()->back()->with('error', $msg);
+                    return redirect()->back()->with('error', 'Tài khoản của bạn đang chờ phê duyệt. Bạn hãy nhờ 1 giáo viên trong trường phê duyệt tài khoản của bạn.');
                 }
                 if ($user['status'] === 'blocked' || $user['status'] === 'rejected') {
                     return redirect()->back()->with('error', 'Tài khoản của bạn đã bị từ chối hoặc khoá.');
@@ -116,10 +113,10 @@ class Auth extends BaseController
                     'class_id'   => $classId,
                     'student_id' => $userId,
                 ]);
-                return redirect()->to(base_url('auth/login'))->with('success', 'Đăng ký thành công! Tài khoản Học sinh của bạn đang chờ Giáo viên trong trường phê duyệt trước khi đăng nhập.');
+                return redirect()->to(base_url('auth/login'))->with('success', 'Đăng ký thành công! Bạn hãy nhờ 1 giáo viên trong trường phê duyệt tài khoản của bạn.');
             }
 
-            return redirect()->to(base_url('auth/login'))->with('success', 'Đăng ký thành công! Tài khoản Giáo viên của bạn đang chờ Admin phê duyệt trước khi đăng nhập.');
+            return redirect()->to(base_url('auth/login'))->with('success', 'Đăng ký thành công! Bạn hãy nhờ 1 giáo viên trong trường phê duyệt tài khoản của bạn.');
         }
 
         $schools = $this->schoolModel->where('status', 'active')->orderBy('name', 'ASC')->findAll();

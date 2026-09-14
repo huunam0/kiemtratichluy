@@ -11,6 +11,8 @@ use App\Models\TestQuestionPoolModel;
 use App\Models\TestSessionModel;
 use App\Models\SessionParticipantModel;
 use App\Models\AccumulatedScoreModel;
+use App\Models\MarkdownQuizModel;
+use App\Models\MarkdownQuizResultModel;
 
 class Teacher extends BaseController
 {
@@ -23,18 +25,22 @@ class Teacher extends BaseController
     protected $sessionModel;
     protected $participantModel;
     protected $accumulatedModel;
+    protected $markdownQuizModel;
+    protected $markdownResultModel;
 
     public function __construct()
     {
-        $this->userModel        = new UserModel();
-        $this->schoolModel      = new SchoolModel();
-        $this->classModel       = new ClassModel();
-        $this->questionModel    = new QuestionModel();
-        $this->testModel        = new TestModel();
-        $this->poolModel        = new TestQuestionPoolModel();
-        $this->sessionModel     = new TestSessionModel();
-        $this->participantModel = new SessionParticipantModel();
-        $this->accumulatedModel = new AccumulatedScoreModel();
+        $this->userModel           = new UserModel();
+        $this->schoolModel         = new SchoolModel();
+        $this->classModel          = new ClassModel();
+        $this->questionModel       = new QuestionModel();
+        $this->testModel           = new TestModel();
+        $this->poolModel           = new TestQuestionPoolModel();
+        $this->sessionModel        = new TestSessionModel();
+        $this->participantModel    = new SessionParticipantModel();
+        $this->accumulatedModel    = new AccumulatedScoreModel();
+        $this->markdownQuizModel   = new MarkdownQuizModel();
+        $this->markdownResultModel = new MarkdownQuizResultModel();
     }
 
     public function dashboard()
@@ -43,11 +49,12 @@ class Teacher extends BaseController
         $teacherId = session()->get('user_id');
 
         $data = [
-            'classes'          => $this->classModel->getClassesBySchool($schoolId),
-            'questions'        => $this->questionModel->getAllGlobalQuestions(),
-            'my_questions'     => $this->questionModel->where('creator_id', $teacherId)->countAllResults(),
-            'active_sessions'  => $this->sessionModel->where('teacher_id', $teacherId)->whereIn('status', ['waiting', 'in_progress'])->findAll(),
-            'pending_students' => $this->userModel->getPendingStudentsBySchool($schoolId),
+            'classes'           => $this->classModel->getClassesBySchool($schoolId),
+            'questions'         => $this->questionModel->getAllGlobalQuestions(),
+            'my_questions'      => $this->questionModel->where('creator_id', $teacherId)->countAllResults(),
+            'active_sessions'   => $this->sessionModel->where('teacher_id', $teacherId)->whereIn('status', ['waiting', 'in_progress'])->findAll(),
+            'pending_students'  => $this->userModel->getPendingStudentsBySchool($schoolId),
+            'pending_teachers'  => $this->userModel->getPendingTeachersBySchool($schoolId, $teacherId),
         ];
 
         return view('teacher/dashboard', $data);
@@ -77,6 +84,47 @@ class Teacher extends BaseController
         }
 
         return redirect()->to(base_url('teacher/dashboard'))->with('error', 'Không thể thao tác.');
+    }
+
+    // Approve / Reject a COLLEAGUE teacher in the same school
+    public function approveColleague(int $targetId)
+    {
+        $schoolId  = session()->get('school_id');
+        $myId      = session()->get('user_id');
+        $target    = $this->userModel->find($targetId);
+
+        if (
+            $target &&
+            $target['role'] === 'teacher' &&
+            $target['status'] === 'pending' &&
+            (int)$target['school_id'] === (int)$schoolId &&
+            (int)$targetId !== (int)$myId
+        ) {
+            $this->userModel->update($targetId, ['status' => 'approved']);
+            return redirect()->to(base_url('teacher/dashboard'))->with('success', "Đã phê duyệt tài khoản Giáo viên: {$target['full_name']}!");
+        }
+
+        return redirect()->to(base_url('teacher/dashboard'))->with('error', 'Không thể phê duyệt tài khoản này.');
+    }
+
+    public function rejectColleague(int $targetId)
+    {
+        $schoolId  = session()->get('school_id');
+        $myId      = session()->get('user_id');
+        $target    = $this->userModel->find($targetId);
+
+        if (
+            $target &&
+            $target['role'] === 'teacher' &&
+            $target['status'] === 'pending' &&
+            (int)$target['school_id'] === (int)$schoolId &&
+            (int)$targetId !== (int)$myId
+        ) {
+            $this->userModel->update($targetId, ['status' => 'rejected']);
+            return redirect()->to(base_url('teacher/dashboard'))->with('success', "Đã từ chối tài khoản Giáo viên: {$target['full_name']}.");
+        }
+
+        return redirect()->to(base_url('teacher/dashboard'))->with('error', 'Không thể thao tác với tài khoản này.');
     }
 
     // --------------------------------------------------------------------
@@ -774,6 +822,113 @@ class Teacher extends BaseController
             'student'     => $student,
             'accumulated' => $accumulated,
             'history'     => $history,
+        ]);
+    }
+
+    // --------------------------------------------------------------------
+    // MARKDOWN PRACTICE QUIZZES MANAGEMENT
+    // --------------------------------------------------------------------
+    public function practiceQuizzes()
+    {
+        $teacherId = session()->get('user_id');
+        $quizzes   = $this->markdownQuizModel->getQuizzesByTeacher($teacherId);
+
+        return view('teacher/practice_quizzes', [
+            'quizzes' => $quizzes
+        ]);
+    }
+
+    public function createPracticeQuiz()
+    {
+        if ($this->request->getMethod() === 'POST') {
+            $title      = trim((string)$this->request->getPost('title'));
+            $subject    = trim((string)$this->request->getPost('subject')) ?: 'Chung';
+            $gradeLevel = (int)$this->request->getPost('grade_level') ?: 10;
+            $markdown   = trim((string)$this->request->getPost('content_markdown'));
+
+            if (empty($title) || empty($markdown)) {
+                return redirect()->back()->with('error', 'Tiêu đề và Nội dung Markdown không được để trống.')->withInput();
+            }
+
+            $slug = $this->markdownQuizModel->generateUniqueSlug($title);
+            $schoolId = session()->get('school_id');
+
+            $this->markdownQuizModel->insert([
+                'teacher_id'       => session()->get('user_id'),
+                'school_id'        => $schoolId,
+                'title'            => $title,
+                'slug'             => $slug,
+                'subject'          => $subject,
+                'grade_level'      => $gradeLevel,
+                'content_markdown' => $markdown,
+                'status'           => 'active',
+            ]);
+
+            return redirect()->to(base_url('teacher/practice-quizzes'))->with('success', 'Tạo đề trắc nghiệm luyện tập thành công!');
+        }
+
+        return view('teacher/practice_quiz_form');
+    }
+
+    public function editPracticeQuiz(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->markdownQuizModel->find($id);
+
+        if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/practice-quizzes'))->with('error', 'Bạn không có quyền sửa đề trắc nghiệm này.');
+        }
+
+        if ($this->request->getMethod() === 'POST') {
+            $title      = trim((string)$this->request->getPost('title'));
+            $subject    = trim((string)$this->request->getPost('subject')) ?: 'Chung';
+            $gradeLevel = (int)$this->request->getPost('grade_level') ?: 10;
+            $markdown   = trim((string)$this->request->getPost('content_markdown'));
+
+            if (empty($title) || empty($markdown)) {
+                return redirect()->back()->with('error', 'Tiêu đề và Nội dung Markdown không được để trống.')->withInput();
+            }
+
+            $this->markdownQuizModel->update($id, [
+                'title'            => $title,
+                'subject'          => $subject,
+                'grade_level'      => $gradeLevel,
+                'content_markdown' => $markdown,
+            ]);
+
+            return redirect()->to(base_url('teacher/practice-quizzes'))->with('success', 'Cập nhật đề trắc nghiệm luyện tập thành công!');
+        }
+
+        return view('teacher/practice_quiz_form', ['quiz' => $quiz]);
+    }
+
+    public function deletePracticeQuiz(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->markdownQuizModel->find($id);
+
+        if ($quiz && (int)$quiz['teacher_id'] === $teacherId) {
+            $this->markdownQuizModel->delete($id);
+            return redirect()->to(base_url('teacher/practice-quizzes'))->with('success', 'Đã xoá đề trắc nghiệm.');
+        }
+
+        return redirect()->to(base_url('teacher/practice-quizzes'))->with('error', 'Không thể xoá đề trắc nghiệm này.');
+    }
+
+    public function practiceQuizResults(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->markdownQuizModel->find($id);
+
+        if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/practice-quizzes'))->with('error', 'Đề trắc nghiệm không tồn tại.');
+        }
+
+        $results = $this->markdownResultModel->getResultsByQuiz($id);
+
+        return view('teacher/practice_quiz_results', [
+            'quiz'    => $quiz,
+            'results' => $results
         ]);
     }
 }

@@ -78,7 +78,7 @@
             </div>
 
             <div id="approval_note" class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs">
-                <i class="fa-solid fa-shield-halved text-amber-600 me-1"></i> Tài khoản sau khi đăng ký sẽ cần được phê duyệt trước khi có thể đăng nhập (<strong id="approver_type">Giáo viên trong trường phê duyệt cho Học sinh</strong>).
+                <i class="fa-solid fa-shield-halved text-amber-600 me-1"></i> Tài khoản sau khi đăng ký sẽ cần được phê duyệt trước khi có thể đăng nhập (<strong id="approver_type">Bạn nhờ 1 giáo viên trong trường phê duyệt tài khoản của bạn</strong>).
             </div>
 
             <button type="submit" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition touch-target">
@@ -102,11 +102,11 @@ function toggleRoleFields(role) {
     if (role === 'teacher') {
         classWrapper.classList.add('hidden');
         classSelect.removeAttribute('required');
-        if (approverType) approverType.innerText = 'Admin phê duyệt cho Giáo viên';
+        if (approverType) approverType.innerText = 'Bạn nhờ 1 giáo viên đã được duyệt trong trường phê duyệt tài khoản của bạn';
     } else {
         classWrapper.classList.remove('hidden');
         classSelect.setAttribute('required', 'required');
-        if (approverType) approverType.innerText = 'Giáo viên trong trường phê duyệt cho Học sinh';
+        if (approverType) approverType.innerText = 'Bạn nhờ 1 giáo viên trong trường phê duyệt tài khoản của bạn';
     }
 }
 
