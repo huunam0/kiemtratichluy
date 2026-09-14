@@ -224,7 +224,6 @@ class Teacher extends BaseController
         return redirect()->to(base_url('teacher/questions'))->with('success', 'Đã xoá câu hỏi!');
     }
 
-    // Image Upload Handler for WYSIWYG Editor
     public function uploadImage()
     {
         $file = $this->request->getFile('image');
@@ -235,6 +234,175 @@ class Teacher extends BaseController
             return $this->response->setJSON(['url' => $url]);
         }
         return $this->response->setJSON(['error' => 'Upload thất bại'], 400);
+    }
+
+    // --------------------------------------------------------------------
+    // AIKEN FORMAT BULK IMPORT
+    // --------------------------------------------------------------------
+    public function importAiken()
+    {
+        if ($this->request->getMethod() === 'POST') {
+            $rawText    = trim((string)$this->request->getPost('aiken_text'));
+            $subject    = trim((string)$this->request->getPost('subject'));
+            $gradeLevel = (int)$this->request->getPost('grade_level');
+            $teacherId  = session()->get('user_id');
+
+            if (empty($rawText)) {
+                return redirect()->back()->with('error', 'Vui lòng dán nội dung Aiken vào ô văn bản.')->withInput();
+            }
+            if (empty($subject)) {
+                return redirect()->back()->with('error', 'Vui lòng chọn môn học.')->withInput();
+            }
+            if ($gradeLevel < 1) {
+                return redirect()->back()->with('error', 'Vui lòng chọn khối lớp.')->withInput();
+            }
+
+            $parsed = $this->parseAikenText($rawText);
+
+            if (empty($parsed['questions'])) {
+                $hint = !empty($parsed['errors']) ? ' Lỗi đầu tiên: ' . $parsed['errors'][0] : '';
+                return redirect()->back()->with('error', 'Không tìm thấy câu hỏi hợp lệ trong văn bản đã nhập.' . $hint)->withInput();
+            }
+
+            $inserted = 0;
+            $skipped  = 0;
+            foreach ($parsed['questions'] as $q) {
+                // Skip duplicate: same content + subject + grade_level already in DB
+                $existing = $this->questionModel
+                    ->where('subject', $subject)
+                    ->where('grade_level', $gradeLevel)
+                    ->where('content', $q['content'])
+                    ->first();
+                if ($existing) {
+                    $skipped++;
+                    continue;
+                }
+
+                $this->questionModel->insert([
+                    'creator_id'     => $teacherId,
+                    'subject'        => $subject,
+                    'grade_level'    => $gradeLevel,
+                    'content'        => esc($q['content']),
+                    'option_a'       => esc($q['option_a']),
+                    'option_b'       => esc($q['option_b']),
+                    'option_c'       => isset($q['option_c']) ? esc($q['option_c']) : null,
+                    'option_d'       => isset($q['option_d']) ? esc($q['option_d']) : null,
+                    'correct_option' => $q['answer'],
+                    'explanation'    => '',
+                ]);
+                $inserted++;
+            }
+
+            $parseErrors = count($parsed['errors']);
+            $msg = "Import Aiken thành công: đã thêm {$inserted} câu hỏi";
+            if ($skipped > 0) {
+                $msg .= ", bỏ qua {$skipped} câu trùng lặp";
+            }
+            if ($parseErrors > 0) {
+                $msg .= ", {$parseErrors} câu bị lỗi định dạng";
+            }
+            $msg .= ".";
+
+            return redirect()->to(base_url('teacher/questions'))->with('success', $msg);
+        }
+
+        return view('teacher/aiken_import');
+    }
+
+    /**
+     * Parse Aiken-format text into an array of questions.
+     *
+     * Aiken format:
+     *   Question text
+     *   A. Option text
+     *   B. Option text
+     *   C. Option text   (optional)
+     *   D. Option text   (optional)
+     *   ANSWER: A
+     *
+     * Returns ['questions' => [...], 'errors' => [...]]
+     */
+    private function parseAikenText(string $text): array
+    {
+        $questions = [];
+        $errors    = [];
+
+        // Normalise line endings
+        $text  = str_replace(["\r\n", "\r"], "\n", $text);
+        // Split into blocks by blank lines
+        $blocks = preg_split('/\n{2,}/', trim($text));
+
+        foreach ($blocks as $blockIndex => $block) {
+            $block = trim($block);
+            if (empty($block)) {
+                continue;
+            }
+
+            $lines = array_map('trim', explode("\n", $block));
+            // Remove empty lines inside block
+            $lines = array_values(array_filter($lines, fn($l) => $l !== ''));
+
+            if (count($lines) < 4) {
+                // Too few lines to be a valid question (need content + A + B + ANSWER at minimum)
+                $errors[] = "Khối " . ($blockIndex + 1) . ": Không đủ dòng (cần ít nhất 4 dòng).";
+                continue;
+            }
+
+            // The first line is the question content (may span multiple lines before the first option)
+            $optionPattern  = '/^([A-Da-d])\.\s+/';
+            $answerPattern  = '/^ANSWER\s*:\s*([A-Da-d])\s*$/i';
+
+            $contentLines = [];
+            $options      = [];
+            $answer       = null;
+            $parsingOpts  = false;
+
+            foreach ($lines as $line) {
+                if (preg_match($answerPattern, $line, $m)) {
+                    $answer = strtoupper($m[1]);
+                } elseif (preg_match($optionPattern, $line, $m)) {
+                    $parsingOpts = true;
+                    $letter = strtoupper($m[1]);
+                    $optText = preg_replace($optionPattern, '', $line);
+                    $options[$letter] = trim($optText);
+                } elseif (!$parsingOpts) {
+                    $contentLines[] = $line;
+                }
+                // Lines after options but before ANSWER that don't match are ignored
+            }
+
+            $content = implode(' ', $contentLines);
+            $content = trim($content);
+
+            // Validate
+            if (empty($content)) {
+                $errors[] = "Khối " . ($blockIndex + 1) . ": Không có nội dung câu hỏi.";
+                continue;
+            }
+            if (!isset($options['A']) || !isset($options['B'])) {
+                $errors[] = "Khối " . ($blockIndex + 1) . " [\"" . mb_substr($content, 0, 40) . "\"]: Thiếu đáp án A hoặc B.";
+                continue;
+            }
+            if ($answer === null) {
+                $errors[] = "Khối " . ($blockIndex + 1) . " [\"" . mb_substr($content, 0, 40) . "\"]: Thiếu dòng ANSWER.";
+                continue;
+            }
+            if (!isset($options[$answer])) {
+                $errors[] = "Khối " . ($blockIndex + 1) . " [\"" . mb_substr($content, 0, 40) . "\"]: Đáp án đúng ({$answer}) không có trong danh sách lựa chọn.";
+                continue;
+            }
+
+            $questions[] = [
+                'content'  => $content,
+                'option_a' => $options['A'],
+                'option_b' => $options['B'],
+                'option_c' => $options['C'] ?? null,
+                'option_d' => $options['D'] ?? null,
+                'answer'   => $answer,
+            ];
+        }
+
+        return ['questions' => $questions, 'errors' => $errors];
     }
 
     // --------------------------------------------------------------------

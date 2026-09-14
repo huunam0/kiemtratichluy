@@ -5,11 +5,16 @@
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Ngân hàng Câu hỏi Toàn hệ thống (Global Question Bank)</h1>
-            <p class="text-gray-500 text-sm">PUBLIC toàn hệ thống — Tất cả giáo viên có thể xem & dùng chung, chỉ người tạo mới được sửa/xoá.</p>
+            <p class="text-gray-500 text-sm">PUBLIC toàn hệ thống — Tất cả giáo viên có thể xem &amp; dùng chung, chỉ người tạo mới được sửa/xoá.</p>
         </div>
-        <a href="<?= base_url('teacher/questions/create') ?>" class="btn btn-indigo bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl px-4 py-2">
-            <i class="fa-solid fa-plus me-1"></i> Soạn Câu Hỏi Mới
-        </a>
+        <div class="d-flex gap-2">
+            <a href="<?= base_url('teacher/questions/import-aiken') ?>" class="btn btn-outline-indigo border-indigo-500 text-indigo-600 hover:bg-indigo-50 font-semibold rounded-xl px-4 py-2">
+                <i class="fa-solid fa-file-import me-1"></i> Import Aiken
+            </a>
+            <a href="<?= base_url('teacher/questions/create') ?>" class="btn btn-indigo bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl px-4 py-2">
+                <i class="fa-solid fa-plus me-1"></i> Soạn Câu Hỏi Mới
+            </a>
+        </div>
     </div>
 
     <!-- Questions Table -->
