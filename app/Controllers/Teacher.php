@@ -135,8 +135,28 @@ class Teacher extends BaseController
     // --------------------------------------------------------------------
     public function questions()
     {
-        $questions = $this->questionModel->getAllGlobalQuestions();
-        return view('teacher/questions', ['questions' => $questions, 'teacher_id' => session()->get('user_id')]);
+        $subject    = trim((string)$this->request->getGet('subject'));
+        $gradeLevel = (int)$this->request->getGet('grade_level');
+        $keyword    = trim((string)$this->request->getGet('keyword'));
+
+        $questions = $this->questionModel->searchQuestions(
+            $subject    ?: null,
+            $gradeLevel ?: null,
+            $keyword    ?: null
+        );
+
+        $subjects = array_column($this->questionModel->getDistinctSubjects(), 'subject');
+
+        return view('teacher/questions', [
+            'questions'   => $questions,
+            'teacher_id'  => session()->get('user_id'),
+            'subjects'    => $subjects,
+            'filter'      => [
+                'subject'     => $subject,
+                'grade_level' => $gradeLevel ?: '',
+                'keyword'     => $keyword,
+            ],
+        ]);
     }
 
     public function createQuestion()
