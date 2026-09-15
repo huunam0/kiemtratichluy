@@ -13,6 +13,12 @@ use App\Models\SessionParticipantModel;
 use App\Models\AccumulatedScoreModel;
 use App\Models\MarkdownQuizModel;
 use App\Models\MarkdownQuizResultModel;
+use App\Models\FillBlankQuestionModel;
+use App\Models\FillBlankQuestionVariantModel;
+use App\Models\FillBlankQuizModel;
+use App\Models\FillBlankSessionModel;
+use App\Models\FillBlankParticipantModel;
+use App\Models\FillBlankResultModel;
 
 class Teacher extends BaseController
 {
@@ -27,6 +33,12 @@ class Teacher extends BaseController
     protected $accumulatedModel;
     protected $markdownQuizModel;
     protected $markdownResultModel;
+    protected $fillBlankQuestionModel;
+    protected $fillBlankVariantModel;
+    protected $fillBlankQuizModel;
+    protected $fillBlankSessionModel;
+    protected $fillBlankParticipantModel;
+    protected $fillBlankResultModel;
 
     public function __construct()
     {
@@ -41,6 +53,12 @@ class Teacher extends BaseController
         $this->accumulatedModel    = new AccumulatedScoreModel();
         $this->markdownQuizModel   = new MarkdownQuizModel();
         $this->markdownResultModel = new MarkdownQuizResultModel();
+        $this->fillBlankQuestionModel    = new FillBlankQuestionModel();
+        $this->fillBlankVariantModel     = new FillBlankQuestionVariantModel();
+        $this->fillBlankQuizModel        = new FillBlankQuizModel();
+        $this->fillBlankSessionModel     = new FillBlankSessionModel();
+        $this->fillBlankParticipantModel = new FillBlankParticipantModel();
+        $this->fillBlankResultModel      = new FillBlankResultModel();
     }
 
     public function dashboard()
@@ -930,5 +948,322 @@ class Teacher extends BaseController
             'quiz'    => $quiz,
             'results' => $results
         ]);
+    }
+
+    // =========================================================================
+    // FILL-IN-THE-BLANKS (TRẮC NGHIỆM ĐIỀN VÀO CHỖ TRỐNG) MANAGEMENT
+    // =========================================================================
+
+    public function fillBlankQuestions()
+    {
+        $teacherId = session()->get('user_id');
+        $questions = $this->fillBlankQuestionModel->getQuestionsByTeacher($teacherId);
+
+        return view('teacher/fill_blank/questions', [
+            'questions' => $questions
+        ]);
+    }
+
+    public function createFillBlankQuestion()
+    {
+        $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
+
+        if ($this->request->getMethod() === 'POST') {
+            $title      = trim((string)$this->request->getPost('title'));
+            $subject    = trim((string)$this->request->getPost('subject')) ?: 'Tin học';
+            $gradeLevel = (int)$this->request->getPost('grade_level') ?: 11;
+            $vName      = trim((string)$this->request->getPost('variant_name')) ?: 'var_1';
+            $vContent   = trim((string)$this->request->getPost('variant_content'));
+
+            if (empty($title) || empty($vContent)) {
+                return redirect()->back()->with('error', 'Vui lòng nhập Tên câu hỏi và Nội dung biến thể mẫu.')->withInput();
+            }
+
+            $qId = $this->fillBlankQuestionModel->insert([
+                'teacher_id'  => $teacherId,
+                'school_id'   => $schoolId,
+                'title'       => $title,
+                'subject'     => $subject,
+                'grade_level' => $gradeLevel,
+            ]);
+
+            $this->fillBlankVariantModel->insert([
+                'question_id'  => $qId,
+                'variant_name' => $vName,
+                'content_raw'  => $vContent,
+            ]);
+
+            return redirect()->to(base_url('teacher/fill-blank/questions'))->with('success', 'Tạo câu hỏi điền chỗ trống thành công!');
+        }
+
+        return view('teacher/fill_blank/question_form', ['question' => null, 'variants' => []]);
+    }
+
+    public function editFillBlankQuestion(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $question  = $this->fillBlankQuestionModel->find($id);
+
+        if (!$question || (int)$question['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/fill-blank/questions'))->with('error', 'Không tìm thấy câu hỏi.');
+        }
+
+        if ($this->request->getMethod() === 'POST') {
+            $action = $this->request->getPost('action');
+
+            if ($action === 'add_variant') {
+                $vName    = trim((string)$this->request->getPost('new_variant_name')) ?: ('var_' . time());
+                $vContent = trim((string)$this->request->getPost('new_variant_content'));
+
+                if (!empty($vContent)) {
+                    $this->fillBlankVariantModel->insert([
+                        'question_id'  => $id,
+                        'variant_name' => $vName,
+                        'content_raw'  => $vContent,
+                    ]);
+                    return redirect()->to(base_url("teacher/fill-blank/questions/edit/{$id}"))->with('success', 'Thêm biến thể mới thành công!');
+                }
+            } elseif ($action === 'delete_variant') {
+                $varId = (int)$this->request->getPost('variant_id');
+                $this->fillBlankVariantModel->delete($varId);
+                return redirect()->to(base_url("teacher/fill-blank/questions/edit/{$id}"))->with('success', 'Đã xoá biến thể.');
+            } else {
+                $title      = trim((string)$this->request->getPost('title'));
+                $subject    = trim((string)$this->request->getPost('subject'));
+                $gradeLevel = (int)$this->request->getPost('grade_level');
+
+                $this->fillBlankQuestionModel->update($id, [
+                    'title'       => $title,
+                    'subject'     => $subject,
+                    'grade_level' => $gradeLevel,
+                ]);
+
+                return redirect()->to(base_url('teacher/fill-blank/questions'))->with('success', 'Cập nhật câu hỏi thành công!');
+            }
+        }
+
+        $variants = $this->fillBlankVariantModel->getVariantsByQuestion($id);
+
+        return view('teacher/fill_blank/question_form', [
+            'question' => $question,
+            'variants' => $variants
+        ]);
+    }
+
+    public function deleteFillBlankQuestion(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $question  = $this->fillBlankQuestionModel->find($id);
+
+        if ($question && (int)$question['teacher_id'] === $teacherId) {
+            $this->fillBlankQuestionModel->delete($id);
+            $this->fillBlankVariantModel->where('question_id', $id)->delete();
+            return redirect()->to(base_url('teacher/fill-blank/questions'))->with('success', 'Đã xoá câu hỏi và các biến thể.');
+        }
+
+        return redirect()->to(base_url('teacher/fill-blank/questions'))->with('error', 'Không thể xoá câu hỏi này.');
+    }
+
+    // --- QUIZZES ---
+    public function fillBlankQuizzes()
+    {
+        $teacherId = session()->get('user_id');
+        $quizzes   = $this->fillBlankQuizModel->getQuizzesByTeacher($teacherId);
+
+        return view('teacher/fill_blank/quizzes', [
+            'quizzes' => $quizzes
+        ]);
+    }
+
+    public function createFillBlankQuiz()
+    {
+        $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
+
+        if ($this->request->getMethod() === 'POST') {
+            $title       = trim((string)$this->request->getPost('title'));
+            $classId     = (int)$this->request->getPost('class_id');
+            $timeLimit   = (int)$this->request->getPost('time_limit') ?: 15;
+            $selectedQs  = $this->request->getPost('selected_questions') ?: [];
+
+            if (empty($title) || empty($selectedQs)) {
+                return redirect()->back()->with('error', 'Vui lòng nhập Tên bài kiểm tra và chọn ít nhất 1 câu hỏi.')->withInput();
+            }
+
+            $this->fillBlankQuizModel->insert([
+                'teacher_id'            => $teacherId,
+                'school_id'             => $schoolId,
+                'class_id'              => $classId,
+                'title'                 => $title,
+                'subject'               => 'Tin học',
+                'time_limit'            => $timeLimit,
+                'selected_question_ids' => json_encode($selectedQs),
+                'status'                => 'active',
+            ]);
+
+            return redirect()->to(base_url('teacher/fill-blank/quizzes'))->with('success', 'Tạo bài kiểm tra điền chỗ trống thành công!');
+        }
+
+        $classes   = $this->classModel->getClassesBySchool($schoolId);
+        $questions = $this->fillBlankQuestionModel->getQuestionsByTeacher($teacherId);
+
+        return view('teacher/fill_blank/quiz_form', [
+            'quiz'      => null,
+            'classes'   => $classes,
+            'questions' => $questions
+        ]);
+    }
+
+    public function editFillBlankQuiz(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
+        $quiz      = $this->fillBlankQuizModel->find($id);
+
+        if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/fill-blank/quizzes'))->with('error', 'Không tìm thấy bài kiểm tra.');
+        }
+
+        if ($this->request->getMethod() === 'POST') {
+            $title       = trim((string)$this->request->getPost('title'));
+            $classId     = (int)$this->request->getPost('class_id');
+            $timeLimit   = (int)$this->request->getPost('time_limit') ?: 15;
+            $selectedQs  = $this->request->getPost('selected_questions') ?: [];
+
+            if (empty($title) || empty($selectedQs)) {
+                return redirect()->back()->with('error', 'Vui lòng chọn ít nhất 1 câu hỏi.')->withInput();
+            }
+
+            $this->fillBlankQuizModel->update($id, [
+                'title'                 => $title,
+                'class_id'              => $classId,
+                'time_limit'            => $timeLimit,
+                'selected_question_ids' => json_encode($selectedQs),
+            ]);
+
+            return redirect()->to(base_url('teacher/fill-blank/quizzes'))->with('success', 'Cập nhật bài kiểm tra thành công!');
+        }
+
+        $classes   = $this->classModel->getClassesBySchool($schoolId);
+        $questions = $this->fillBlankQuestionModel->getQuestionsByTeacher($teacherId);
+
+        return view('teacher/fill_blank/quiz_form', [
+            'quiz'      => $quiz,
+            'classes'   => $classes,
+            'questions' => $questions
+        ]);
+    }
+
+    public function deleteFillBlankQuiz(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->fillBlankQuizModel->find($id);
+
+        if ($quiz && (int)$quiz['teacher_id'] === $teacherId) {
+            $this->fillBlankQuizModel->delete($id);
+            return redirect()->to(base_url('teacher/fill-blank/quizzes'))->with('success', 'Đã xoá bài kiểm tra.');
+        }
+
+        return redirect()->to(base_url('teacher/fill-blank/quizzes'))->with('error', 'Không thể xoá bài kiểm tra này.');
+    }
+
+    // --- REAL TEST SESSIONS & APPROVAL ---
+    public function createFillBlankSession(int $quizId)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->fillBlankQuizModel->find($quizId);
+
+        if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/fill-blank/quizzes'))->with('error', 'Bài kiểm tra không tồn tại.');
+        }
+
+        if (empty($quiz['class_id'])) {
+            return redirect()->to(base_url('teacher/fill-blank/quizzes'))->with('error', 'Bài kiểm tra chưa được gán cho Lớp học nào.');
+        }
+
+        $sessionCode = strtoupper(substr(md5(uniqid()), 0, 6));
+        $sessionId = $this->fillBlankSessionModel->insert([
+            'quiz_id'      => $quizId,
+            'teacher_id'   => $teacherId,
+            'class_id'     => $quiz['class_id'],
+            'session_code' => $sessionCode,
+            'status'       => 'waiting',
+            'created_at'   => date('Y-m-d H:i:s'),
+        ]);
+
+        return redirect()->to(base_url("teacher/fill-blank/sessions/control/{$sessionId}"))->with('success', 'Đã tạo lượt kiểm tra thật thành công!');
+    }
+
+    public function fillBlankSessionControl(int $sessionId)
+    {
+        $teacherId = session()->get('user_id');
+        $session   = $this->fillBlankSessionModel->find($sessionId);
+
+        if (!$session || (int)$session['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/fill-blank/quizzes'))->with('error', 'Không tìm thấy phiên kiểm tra.');
+        }
+
+        $quiz         = $this->fillBlankQuizModel->find($session['quiz_id']);
+        $participants = $this->fillBlankParticipantModel->getParticipantsBySession($sessionId);
+
+        return view('teacher/fill_blank/session_control', [
+            'session'      => $session,
+            'quiz'         => $quiz,
+            'participants' => $participants,
+        ]);
+    }
+
+    public function approveFillBlankParticipant(int $partId)
+    {
+        $teacherId = session()->get('user_id');
+        $part      = $this->fillBlankParticipantModel->find($partId);
+
+        if ($part) {
+            $session = $this->fillBlankSessionModel->find($part['session_id']);
+            if ($session && (int)$session['teacher_id'] === $teacherId) {
+                $this->fillBlankParticipantModel->update($partId, [
+                    'approval_status' => 'approved',
+                    'test_status'     => 'in_test',
+                    'approved_at'     => date('Y-m-d H:i:s'),
+                    'started_at'      => date('Y-m-d H:i:s'),
+                ]);
+
+                if ($this->request->isAJAX()) {
+                    return $this->response->setJSON(['status' => 'success']);
+                }
+                return redirect()->back()->with('success', 'Đã phê duyệt học sinh vào thi.');
+            }
+        }
+
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON(['status' => 'error'], 400);
+        }
+        return redirect()->back()->with('error', 'Không thể phê duyệt.');
+    }
+
+    public function rejectFillBlankParticipant(int $partId)
+    {
+        $teacherId = session()->get('user_id');
+        $part      = $this->fillBlankParticipantModel->find($partId);
+
+        if ($part) {
+            $session = $this->fillBlankSessionModel->find($part['session_id']);
+            if ($session && (int)$session['teacher_id'] === $teacherId) {
+                $this->fillBlankParticipantModel->update($partId, [
+                    'approval_status' => 'rejected',
+                ]);
+
+                if ($this->request->isAJAX()) {
+                    return $this->response->setJSON(['status' => 'success']);
+                }
+                return redirect()->back()->with('success', 'Đã từ chối học sinh.');
+            }
+        }
+
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON(['status' => 'error'], 400);
+        }
+        return redirect()->back()->with('error', 'Không thể từ chối.');
     }
 }

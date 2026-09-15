@@ -19,7 +19,7 @@
     </div>
 
     <!-- Quick Navigation Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
         <a href="<?= base_url('teacher/classes') ?>" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition flex items-center justify-between no-underline">
             <div>
                 <div class="text-xs text-gray-500 font-semibold uppercase">Lớp Học</div>
@@ -32,11 +32,21 @@
 
         <a href="<?= base_url('teacher/questions') ?>" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition flex items-center justify-between no-underline">
             <div>
-                <div class="text-xs text-gray-500 font-semibold uppercase">Ngân Hàng Câu Hỏi</div>
+                <div class="text-xs text-gray-500 font-semibold uppercase">Ngân Hàng Trắc Nghiệm</div>
                 <div class="text-2xl font-black text-gray-900 mt-1"><?= count($questions) ?></div>
             </div>
             <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
                 <i class="fa-solid fa-database"></i>
+            </div>
+        </a>
+
+        <a href="<?= base_url('teacher/fill-blank/quizzes') ?>" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition flex items-center justify-between no-underline">
+            <div>
+                <div class="text-xs text-gray-500 font-semibold uppercase">Điền Chỗ Trống</div>
+                <div class="text-2xl font-black text-gray-900 mt-1">Đề Thi</div>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-pen-to-square"></i>
             </div>
         </a>
 
@@ -52,7 +62,7 @@
 
         <a href="<?= base_url('teacher/practice-quizzes') ?>" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition flex items-center justify-between no-underline">
             <div>
-                <div class="text-xs text-gray-500 font-semibold uppercase">Đề Luyện Tập Markdown</div>
+                <div class="text-xs text-gray-500 font-semibold uppercase">Luyện Tập Markdown</div>
                 <div class="text-2xl font-black text-gray-900 mt-1">Tự Do</div>
             </div>
             <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl">

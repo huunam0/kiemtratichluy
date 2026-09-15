@@ -65,6 +65,22 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->match(['get', 'post'], 'practice-quizzes/edit/(:num)', 'Teacher::editPracticeQuiz/$1');
     $routes->get('practice-quizzes/delete/(:num)', 'Teacher::deletePracticeQuiz/$1');
     $routes->get('practice-quizzes/results/(:num)', 'Teacher::practiceQuizResults/$1');
+
+    // Fill-in-the-blanks (Điền vào chỗ trống) Management
+    $routes->get('fill-blank/questions', 'Teacher::fillBlankQuestions');
+    $routes->match(['get', 'post'], 'fill-blank/questions/create', 'Teacher::createFillBlankQuestion');
+    $routes->match(['get', 'post'], 'fill-blank/questions/edit/(:num)', 'Teacher::editFillBlankQuestion/$1');
+    $routes->get('fill-blank/questions/delete/(:num)', 'Teacher::deleteFillBlankQuestion/$1');
+    
+    $routes->get('fill-blank/quizzes', 'Teacher::fillBlankQuizzes');
+    $routes->match(['get', 'post'], 'fill-blank/quizzes/create', 'Teacher::createFillBlankQuiz');
+    $routes->match(['get', 'post'], 'fill-blank/quizzes/edit/(:num)', 'Teacher::editFillBlankQuiz/$1');
+    $routes->get('fill-blank/quizzes/delete/(:num)', 'Teacher::deleteFillBlankQuiz/$1');
+
+    $routes->post('fill-blank/sessions/create/(:num)', 'Teacher::createFillBlankSession/$1');
+    $routes->get('fill-blank/sessions/control/(:num)', 'Teacher::fillBlankSessionControl/$1');
+    $routes->post('fill-blank/sessions/approve/(:num)', 'Teacher::approveFillBlankParticipant/$1');
+    $routes->post('fill-blank/sessions/reject/(:num)', 'Teacher::rejectFillBlankParticipant/$1');
 });
 
 // Student routes
@@ -83,6 +99,16 @@ $routes->group('student', ['filter' => 'role:student'], function ($routes) {
     // Mock Test
     $routes->get('mock-test/(:num)', 'Student::mockTest/$1');
     $routes->post('submit-mock-test', 'Student::submitMockTest');
+
+    // Fill-in-the-blanks Student routes
+    $routes->get('fill-blank/mock/(:num)', 'Student::fillBlankMock/$1');
+    $routes->post('fill-blank/submit-mock/(:num)', 'Student::submitFillBlankMock/$1');
+
+    $routes->get('fill-blank/join-session/(:num)', 'Student::joinFillBlankSession/$1');
+    $routes->get('fill-blank/waiting-room/(:num)', 'Student::fillBlankWaitingRoom/$1');
+    $routes->get('fill-blank/check-approval/(:num)', 'Student::checkFillBlankApproval/$1');
+    $routes->get('fill-blank/exam/(:num)', 'Student::startFillBlankExam/$1');
+    $routes->post('fill-blank/submit-exam/(:num)', 'Student::submitFillBlankExam/$1');
 });
 
 // Public Practice Quiz routes (accessible via shared link)

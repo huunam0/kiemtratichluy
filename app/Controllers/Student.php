@@ -13,6 +13,13 @@ use App\Models\SessionQuestionAnswerModel;
 use App\Models\AccumulatedScoreModel;
 use App\Models\MockTestLogModel;
 use App\Services\OptionShuffleService;
+use App\Models\FillBlankQuizModel;
+use App\Models\FillBlankQuestionModel;
+use App\Models\FillBlankQuestionVariantModel;
+use App\Models\FillBlankSessionModel;
+use App\Models\FillBlankParticipantModel;
+use App\Models\FillBlankResultModel;
+use App\Libraries\FillBlankEngine;
 
 class Student extends BaseController
 {
@@ -27,6 +34,13 @@ class Student extends BaseController
     protected $accumulatedModel;
     protected $mockLogModel;
     protected $shuffleService;
+    protected $fillBlankQuizModel;
+    protected $fillBlankQuestionModel;
+    protected $fillBlankVariantModel;
+    protected $fillBlankSessionModel;
+    protected $fillBlankParticipantModel;
+    protected $fillBlankResultModel;
+    protected $fillBlankEngine;
 
     public function __construct()
     {
@@ -41,6 +55,14 @@ class Student extends BaseController
         $this->accumulatedModel = new AccumulatedScoreModel();
         $this->mockLogModel     = new MockTestLogModel();
         $this->shuffleService   = new OptionShuffleService();
+
+        $this->fillBlankQuizModel        = new FillBlankQuizModel();
+        $this->fillBlankQuestionModel    = new FillBlankQuestionModel();
+        $this->fillBlankVariantModel     = new FillBlankQuestionVariantModel();
+        $this->fillBlankSessionModel     = new FillBlankSessionModel();
+        $this->fillBlankParticipantModel = new FillBlankParticipantModel();
+        $this->fillBlankResultModel      = new FillBlankResultModel();
+        $this->fillBlankEngine           = new FillBlankEngine();
     }
 
     public function dashboard()
@@ -77,11 +99,28 @@ class Student extends BaseController
         $schoolId = session()->get('school_id');
         $practiceQuizzes = $markdownQuizModel->getQuizzesBySchool($schoolId);
 
+        // Fetch Fill-in-the-blank Quizzes & Active Real Sessions
+        $fillBlankQuizzes = $this->fillBlankQuizModel->getQuizzesBySchool($schoolId);
+        $fillBlankActiveSessions = [];
+        foreach ($classes as $cls) {
+            $fbSessList = $this->fillBlankSessionModel->getActiveSessionsForStudent($cls['id']);
+            foreach ($fbSessList as &$fbSess) {
+                $part = $this->fillBlankParticipantModel->where('session_id', $fbSess['id'])
+                                                        ->where('student_id', $studentId)
+                                                        ->first();
+                $fbSess['my_participant'] = $part;
+            }
+            unset($fbSess);
+            $fillBlankActiveSessions = array_merge($fillBlankActiveSessions, $fbSessList);
+        }
+
         return view('student/dashboard', [
-            'classes'            => $classes,
-            'active_sessions'    => $activeSessions,
-            'accumulated_scores' => $accumulatedScores,
-            'practice_quizzes'   => $practiceQuizzes,
+            'classes'                   => $classes,
+            'active_sessions'           => $activeSessions,
+            'accumulated_scores'        => $accumulatedScores,
+            'practice_quizzes'          => $practiceQuizzes,
+            'fill_blank_quizzes'        => $fillBlankQuizzes,
+            'fill_blank_active_sessions'=> $fillBlankActiveSessions,
         ]);
     }
 
@@ -429,5 +468,281 @@ class Student extends BaseController
         }
 
         return $this->response->setJSON(['status' => 'success']);
+    }
+
+    // =========================================================================
+    // FILL-IN-THE-BLANKS (TRẮC NGHIỆM ĐIỀN VÀO CHỖ TRỐNG) STUDENT FLOW
+    // =========================================================================
+
+    // --- MOCK / PRACTICE TEST (TỰ DO) ---
+    public function fillBlankMock(int $quizId)
+    {
+        $studentId = session()->get('user_id');
+        $quiz      = $this->fillBlankQuizModel->find($quizId);
+
+        if (!$quiz) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không tồn tại.');
+        }
+
+        $questionIds = json_decode($quiz['selected_question_ids'] ?: '[]', true);
+        $questionsData = [];
+
+        foreach ($questionIds as $qId) {
+            $qInfo   = $this->fillBlankQuestionModel->find($qId);
+            $variant = $this->fillBlankVariantModel->getRandomVariant($qId);
+            if ($qInfo && $variant) {
+                $parsed = $this->fillBlankEngine->parseQuestion($variant['content_raw']);
+                $questionsData[] = [
+                    'question'     => $qInfo,
+                    'variant_name' => $variant['variant_name'],
+                    'html'         => $parsed['html'],
+                    'answers'      => $parsed['answers'],
+                    'total_blanks' => $parsed['total_blanks'],
+                ];
+            }
+        }
+
+        return view('student/fill_blank/do_quiz', [
+            'quiz'           => $quiz,
+            'is_mock'        => true,
+            'participant'    => null,
+            'questionsData'  => $questionsData,
+        ]);
+    }
+
+    public function submitFillBlankMock(int $quizId)
+    {
+        $studentId = session()->get('user_id');
+        $quiz      = $this->fillBlankQuizModel->find($quizId);
+
+        if (!$quiz) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không tồn tại.');
+        }
+
+        $userAnswers = $this->request->getPost('answers') ?: [];
+        $correctAnswersJson = $this->request->getPost('correct_answers_json');
+        $correctAnswers = json_decode($correctAnswersJson ?: '[]', true);
+
+        $totalBlanks = 0;
+        $scoreCorrect = 0;
+
+        foreach ($correctAnswers as $qIdx => $answersList) {
+            foreach ($answersList as $bIdx => $cAns) {
+                $totalBlanks++;
+                $uAns = isset($userAnswers[$qIdx][$bIdx]) ? $userAnswers[$qIdx][$bIdx] : '';
+                if ($this->fillBlankEngine->compareAnswer($uAns, $cAns, false, 0)) {
+                    $scoreCorrect++;
+                }
+            }
+        }
+
+        $scoreBase10 = $totalBlanks > 0 ? round(($scoreCorrect / $totalBlanks) * 10, 2) : 0;
+
+        $this->fillBlankResultModel->insert([
+            'quiz_id'         => $quizId,
+            'session_id'      => null,
+            'student_id'      => $studentId,
+            'is_mock'         => 1,
+            'score_correct'   => $scoreCorrect,
+            'total_blanks'    => $totalBlanks,
+            'score_base10'    => $scoreBase10,
+            'student_answers' => json_encode($userAnswers),
+            'completed_at'    => date('Y-m-d H:i:s'),
+        ]);
+
+        return view('student/fill_blank/result', [
+            'quiz'          => $quiz,
+            'is_mock'       => true,
+            'score_correct' => $scoreCorrect,
+            'total_blanks'  => $totalBlanks,
+            'score_base10'  => $scoreBase10,
+        ]);
+    }
+
+    // --- REAL TEST (CẦN GIÁO VIÊN PHÊ DUYỆT) ---
+    public function joinFillBlankSession(int $sessionId)
+    {
+        $studentId = session()->get('user_id');
+        $session   = $this->fillBlankSessionModel->find($sessionId);
+
+        if (!$session || $session['status'] === 'completed' || $session['status'] === 'cancelled') {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Phiên kiểm tra này đã kết thúc.');
+        }
+
+        $part = $this->fillBlankParticipantModel->where('session_id', $sessionId)
+                                                ->where('student_id', $studentId)
+                                                ->first();
+
+        if ($part) {
+            if ($part['test_status'] === 'submitted' || $part['test_status'] === 'timed_out') {
+                return redirect()->to(base_url('student/dashboard'))->with('error', 'Bạn đã hoàn thành lượt thi này rồi.');
+            }
+            if ($part['approval_status'] === 'approved' && $part['test_status'] === 'in_test') {
+                return redirect()->to(base_url("student/fill-blank/exam/{$part['id']}"));
+            }
+        } else {
+            $partId = $this->fillBlankParticipantModel->insert([
+                'session_id'      => $sessionId,
+                'student_id'      => $studentId,
+                'approval_status' => 'pending',
+                'test_status'     => 'waiting_approval',
+                'joined_at'       => date('Y-m-d H:i:s'),
+            ]);
+            $part = $this->fillBlankParticipantModel->find($partId);
+        }
+
+        return redirect()->to(base_url("student/fill-blank/waiting-room/{$part['id']}"));
+    }
+
+    public function fillBlankWaitingRoom(int $participantId)
+    {
+        $part = $this->fillBlankParticipantModel->find($participantId);
+        if (!$part) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Không tìm thấy thông tin đăng ký thi.');
+        }
+
+        $session = $this->fillBlankSessionModel->find($part['session_id']);
+        $quiz    = $this->fillBlankQuizModel->find($session['quiz_id']);
+
+        if ($part['approval_status'] === 'approved') {
+            return redirect()->to(base_url("student/fill-blank/exam/{$part['id']}"));
+        }
+
+        return view('student/fill_blank/waiting_room', [
+            'participant' => $part,
+            'session'     => $session,
+            'quiz'        => $quiz,
+        ]);
+    }
+
+    public function checkFillBlankApproval(int $participantId)
+    {
+        $part = $this->fillBlankParticipantModel->find($participantId);
+        if (!$part) {
+            return $this->response->setJSON(['approval_status' => 'not_found']);
+        }
+
+        return $this->response->setJSON([
+            'approval_status' => $part['approval_status'],
+            'test_status'     => $part['test_status'],
+        ]);
+    }
+
+    public function startFillBlankExam(int $participantId)
+    {
+        $studentId = session()->get('user_id');
+        $part      = $this->fillBlankParticipantModel->find($participantId);
+
+        if (!$part || (int)$part['student_id'] !== $studentId || $part['approval_status'] !== 'approved') {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bạn chưa được giáo viên phê duyệt vào thi.');
+        }
+
+        if ($part['test_status'] === 'submitted' || $part['test_status'] === 'timed_out') {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bạn đã nộp bài thi này rồi.');
+        }
+
+        $session = $this->fillBlankSessionModel->find($part['session_id']);
+        $quiz    = $this->fillBlankQuizModel->find($session['quiz_id']);
+
+        $questionIds = json_decode($quiz['selected_question_ids'] ?: '[]', true);
+        $questionsData = [];
+
+        foreach ($questionIds as $qId) {
+            $qInfo   = $this->fillBlankQuestionModel->find($qId);
+            $variant = $this->fillBlankVariantModel->getRandomVariant($qId);
+            if ($qInfo && $variant) {
+                $parsed = $this->fillBlankEngine->parseQuestion($variant['content_raw']);
+                $questionsData[] = [
+                    'question'     => $qInfo,
+                    'variant_name' => $variant['variant_name'],
+                    'html'         => $parsed['html'],
+                    'answers'      => $parsed['answers'],
+                    'total_blanks' => $parsed['total_blanks'],
+                ];
+            }
+        }
+
+        return view('student/fill_blank/do_quiz', [
+            'quiz'          => $quiz,
+            'is_mock'       => false,
+            'participant'   => $part,
+            'questionsData' => $questionsData,
+        ]);
+    }
+
+    public function submitFillBlankExam(int $participantId)
+    {
+        $studentId = session()->get('user_id');
+        $part      = $this->fillBlankParticipantModel->find($participantId);
+
+        if (!$part || (int)$part['student_id'] !== $studentId) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Thông tin tham gia thi không hợp lệ.');
+        }
+
+        $session = $this->fillBlankSessionModel->find($part['session_id']);
+        $quiz    = $this->fillBlankQuizModel->find($session['quiz_id']);
+
+        $userAnswers = $this->request->getPost('answers') ?: [];
+        $correctAnswersJson = $this->request->getPost('correct_answers_json');
+        $correctAnswers = json_decode($correctAnswersJson ?: '[]', true);
+
+        $totalBlanks = 0;
+        $scoreCorrect = 0;
+
+        foreach ($correctAnswers as $qIdx => $answersList) {
+            foreach ($answersList as $bIdx => $cAns) {
+                $totalBlanks++;
+                $uAns = isset($userAnswers[$qIdx][$bIdx]) ? $userAnswers[$qIdx][$bIdx] : '';
+                if ($this->fillBlankEngine->compareAnswer($uAns, $cAns, false, 0)) {
+                    $scoreCorrect++;
+                }
+            }
+        }
+
+        $scoreBase10 = $totalBlanks > 0 ? round(($scoreCorrect / $totalBlanks) * 10, 2) : 0;
+
+        $this->fillBlankParticipantModel->update($participantId, [
+            'test_status'   => 'submitted',
+            'score_correct' => $scoreCorrect,
+            'score_total'   => $totalBlanks,
+            'score_base10'  => $scoreBase10,
+            'submitted_at'  => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->fillBlankResultModel->insert([
+            'quiz_id'         => $quiz['id'],
+            'session_id'      => $session['id'],
+            'student_id'      => $studentId,
+            'is_mock'         => 0,
+            'score_correct'   => $scoreCorrect,
+            'total_blanks'    => $totalBlanks,
+            'score_base10'    => $scoreBase10,
+            'student_answers' => json_encode($userAnswers),
+            'completed_at'    => date('Y-m-d H:i:s'),
+        ]);
+
+        $existingAcc = $this->accumulatedModel->where('student_id', $studentId)
+                                              ->where('class_id', $session['class_id'])
+                                              ->first();
+        if ($existingAcc) {
+            $this->accumulatedModel->update($existingAcc['id'], [
+                'score' => $existingAcc['score'] + $scoreBase10,
+            ]);
+        } else {
+            $this->accumulatedModel->insert([
+                'student_id' => $studentId,
+                'class_id'   => $session['class_id'],
+                'test_id'    => $quiz['id'],
+                'score'      => $scoreBase10,
+            ]);
+        }
+
+        return view('student/fill_blank/result', [
+            'quiz'          => $quiz,
+            'is_mock'       => false,
+            'score_correct' => $scoreCorrect,
+            'total_blanks'  => $totalBlanks,
+            'score_base10'  => $scoreBase10,
+        ]);
     }
 }
