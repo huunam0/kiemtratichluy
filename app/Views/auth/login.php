@@ -25,7 +25,10 @@
             </div>
 
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Mật khẩu</label>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="block text-sm font-semibold text-gray-700 mb-0">Mật khẩu</label>
+                    <a href="<?= base_url('forgot-password') ?>" class="text-xs text-indigo-600 font-semibold hover:underline">Quên mật khẩu?</a>
+                </div>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
                         <i class="fa-solid fa-key"></i>

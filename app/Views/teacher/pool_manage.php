@@ -99,7 +99,11 @@
                                     <?= strip_tags($gq['content'], '<img><code><pre><b><i><strong>') ?>
                                 </div>
                             </td>
-                            <td><span class="badge bg-gray-100 text-gray-600"><?= esc($gq['subject']) ?> - K<?= esc($gq['grade_level']) ?></span></td>
+                            <td>
+                                <span class="badge bg-gray-100 text-gray-600"><?= esc($gq['subject_name'] ?? '') ?></span>
+                                <span class="badge bg-indigo-50 text-indigo-700 ms-1"><?= esc($gq['topic_name'] ?? '') ?></span>
+                                - K<?= esc($gq['grade_level'] ?? '') ?>
+                            </td>
                             <td class="text-gray-600 text-xs"><?= esc($gq['creator_name'] ?? 'Giáo viên') ?></td>
                             <td class="text-end pe-6">
                                 <?php if ($inPool): ?>

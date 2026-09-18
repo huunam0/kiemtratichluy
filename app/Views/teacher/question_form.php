@@ -18,18 +18,30 @@
         <form action="<?= $isEdit ? base_url("teacher/questions/edit/{$question['id']}") : base_url('teacher/questions/create') ?>" method="POST" id="questionForm" class="space-y-6">
             <?= csrf_field() ?>
 
-            <!-- Subject & Grade -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Subject, Grade & Topic -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Môn học / Chủ đề</label>
-                    <input type="text" name="subject" value="<?= esc($question['subject'] ?? 'Tin Học') ?>" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500" placeholder="VD: Toán, Tin học, Vật Lý...">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Môn học <span class="text-red-500">*</span></label>
+                    <select name="subject_id" id="subject_id" required class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <option value="">-- Chọn Môn --</option>
+                        <?php foreach($subjects as $subj): ?>
+                            <option value="<?= $subj['id'] ?>" <?= (isset($question['subject_id']) && $question['subject_id'] == $subj['id']) ? 'selected' : '' ?>><?= esc($subj['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Khối Lớp</label>
-                    <select name="grade_level" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 bg-white">
-                        <option value="10" <?= isset($question) && $question['grade_level'] == 10 ? 'selected' : '' ?>>Khối 10</option>
-                        <option value="11" <?= isset($question) && $question['grade_level'] == 11 ? 'selected' : '' ?>>Khối 11</option>
-                        <option value="12" <?= isset($question) && $question['grade_level'] == 12 ? 'selected' : '' ?>>Khối 12</option>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Khối Lớp <span class="text-red-500">*</span></label>
+                    <select name="grade_level" id="grade_level" required class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <option value="">-- Chọn Khối --</option>
+                        <?php for ($i = 1; $i <= 12; $i++): ?>
+                            <option value="<?= $i ?>" <?= isset($question['grade_level']) && $question['grade_level'] == $i ? 'selected' : '' ?>>Khối <?= $i ?></option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Chủ đề <span class="text-red-500">*</span></label>
+                    <select name="topic_id" id="topic_id" required class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <option value="">-- Chọn Chủ đề --</option>
                     </select>
                 </div>
             </div>
@@ -161,6 +173,42 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('questionForm').onsubmit = function() {
         document.getElementById('hidden_content').value = quill.root.innerHTML;
     };
+
+    // AJAX Load Topics
+    const subjectSelect = document.getElementById('subject_id');
+    const gradeSelect = document.getElementById('grade_level');
+    const topicSelect = document.getElementById('topic_id');
+    const currentTopicId = '<?= esc($question['topic_id'] ?? '') ?>';
+
+    function loadTopics() {
+        const subjectId = subjectSelect.value;
+        const gradeLevel = gradeSelect.value;
+        
+        topicSelect.innerHTML = '<option value="">-- Chọn Chủ đề --</option>';
+        if (!subjectId || !gradeLevel) return;
+
+        fetch(`<?= base_url('teacher/get-topics-by-subject-grade') ?>?subject_id=${subjectId}&grade_level=${gradeLevel}`)
+            .then(res => res.json())
+            .then(data => {
+                data.forEach(topic => {
+                    const option = document.createElement('option');
+                    option.value = topic.id;
+                    option.textContent = topic.name;
+                    if (currentTopicId && topic.id == currentTopicId) {
+                        option.selected = true;
+                    }
+                    topicSelect.appendChild(option);
+                });
+            });
+    }
+
+    subjectSelect.addEventListener('change', loadTopics);
+    gradeSelect.addEventListener('change', loadTopics);
+
+    // Initial load if editing
+    if (subjectSelect.value && gradeSelect.value) {
+        loadTopics();
+    }
 });
 </script>
 <?= $this->endSection() ?>

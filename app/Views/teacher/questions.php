@@ -1,4 +1,4 @@
-﻿<?= $this->extend('layouts/main') ?>
+<?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
 <div class="space-y-5">
@@ -9,9 +9,12 @@
             <h1 class="text-2xl font-bold text-gray-900">Ngân hàng Câu hỏi Toàn hệ thống</h1>
             <p class="text-gray-500 text-sm mt-0.5">PUBLIC — tất cả giáo viên có thể xem &amp; dùng chung, chỉ người tạo mới được sửa/xoá.</p>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="<?= base_url('teacher/questions/import-aiken') ?>" class="btn btn-outline-secondary rounded-xl px-4 py-2 font-semibold">
-                <i class="fa-solid fa-file-import me-1 text-indigo-500"></i> Import Aiken
+        <div class="d-flex gap-2">
+            <a href="<?= base_url('teacher/topics') ?>" class="btn btn-outline-indigo rounded-xl px-4 py-2 font-semibold">
+                <i class="fa-solid fa-tags me-1"></i> Quản lý Chủ đề
+            </a>
+            <a href="<?= base_url('teacher/questions/import-aiken') ?>" class="btn btn-outline-secondary rounded-xl px-4 py-2">
+                <i class="fa-solid fa-file-import me-1"></i> Import Aiken
             </a>
             <a href="<?= base_url('teacher/questions/create') ?>" class="btn bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-xl px-4 py-2">
                 <i class="fa-solid fa-plus me-1"></i> Soạn Câu Hỏi Mới
@@ -25,7 +28,7 @@
             <div class="row g-3 align-items-end">
 
                 <!-- Keyword -->
-                <div class="col-12 col-md-5">
+                <div class="col-12 col-md-4">
                     <label class="form-label fw-semibold text-gray-700 small mb-1">
                         <i class="fa-solid fa-magnifying-glass me-1 text-indigo-400"></i>Từ khoá
                     </label>
@@ -48,37 +51,42 @@
                 </div>
 
                 <!-- Subject -->
-                <div class="col-12 col-sm-6 col-md-3">
+                <div class="col-12 col-sm-4 col-md-2">
                     <label class="form-label fw-semibold text-gray-700 small mb-1">
                         <i class="fa-solid fa-book me-1 text-indigo-400"></i>Môn học
                     </label>
-                    <select name="subject" class="form-select rounded-xl" onchange="this.form.submit()">
-                        <option value="">-- Tất cả môn --</option>
-                        <?php
-                        // Merge DB subjects with predefined list for completeness
-                        $predefined = ['Toán','Ngữ Văn','Vật Lý','Hóa Học','Sinh Học','Lịch Sử','Địa Lý','GDCD','Tiếng Anh','Tin Học','Thể Dục','Công Nghệ','Âm Nhạc','Mỹ Thuật','Chung'];
-                        $allSubjects = array_unique(array_merge($subjects ?? [], $predefined));
-                        sort($allSubjects);
-                        foreach ($allSubjects as $s): ?>
-                            <option value="<?= esc($s) ?>" <?= ($filter['subject'] ?? '') === $s ? 'selected' : '' ?>>
-                                <?= esc($s) ?>
+                    <select name="subject_id" id="filter_subject_id" class="form-select rounded-xl">
+                        <option value="">-- Tất cả --</option>
+                        <?php foreach ($subjects as $s): ?>
+                            <option value="<?= esc($s['id']) ?>" <?= ($filter['subject_id'] ?? '') == $s['id'] ? 'selected' : '' ?>>
+                                <?= esc($s['name']) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
 
                 <!-- Grade level -->
-                <div class="col-12 col-sm-6 col-md-2">
+                <div class="col-12 col-sm-4 col-md-2">
                     <label class="form-label fw-semibold text-gray-700 small mb-1">
                         <i class="fa-solid fa-layer-group me-1 text-indigo-400"></i>Khối lớp
                     </label>
-                    <select name="grade_level" class="form-select rounded-xl" onchange="this.form.submit()">
+                    <select name="grade_level" id="filter_grade_level" class="form-select rounded-xl">
                         <option value="">-- Tất cả --</option>
                         <?php for ($g = 1; $g <= 12; $g++): ?>
                             <option value="<?= $g ?>" <?= (string)($filter['grade_level'] ?? '') === (string)$g ? 'selected' : '' ?>>
                                 Khối <?= $g ?>
                             </option>
                         <?php endfor; ?>
+                    </select>
+                </div>
+                
+                <!-- Topic -->
+                <div class="col-12 col-sm-4 col-md-2">
+                    <label class="form-label fw-semibold text-gray-700 small mb-1">
+                        <i class="fa-solid fa-tags me-1 text-indigo-400"></i>Chủ đề
+                    </label>
+                    <select name="topic_id" id="filter_topic_id" class="form-select rounded-xl">
+                        <option value="">-- Tất cả --</option>
                     </select>
                 </div>
 
@@ -96,7 +104,7 @@
 
             <!-- Active filter chips -->
             <?php
-            $hasFilter = !empty($filter['subject']) || !empty($filter['grade_level']) || !empty($filter['keyword']);
+            $hasFilter = !empty($filter['subject_id']) || !empty($filter['grade_level']) || !empty($filter['keyword']);
             if ($hasFilter): ?>
                 <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
                     <span class="text-xs text-gray-500 fw-semibold">Đang lọc:</span>
@@ -105,9 +113,20 @@
                             <i class="fa-solid fa-magnifying-glass me-1"></i><?= esc($filter['keyword']) ?>
                         </span>
                     <?php endif; ?>
-                    <?php if (!empty($filter['subject'])): ?>
+                    <?php if (!empty($filter['subject_id'])): 
+                        $sjName = '';
+                        foreach($subjects as $sj) { if($sj['id'] == $filter['subject_id']) { $sjName = $sj['name']; break; } }
+                    ?>
                         <span class="badge bg-blue-100 text-blue-700 rounded-pill px-3 py-1.5 text-xs">
-                            <i class="fa-solid fa-book me-1"></i><?= esc($filter['subject']) ?>
+                            <i class="fa-solid fa-book me-1"></i><?= esc($sjName) ?>
+                        </span>
+                    <?php endif; ?>
+                    <?php if (!empty($filter['topic_id'])): 
+                        $topicName = '';
+                        foreach($questions as $q) { if($q['topic_id'] == $filter['topic_id']) { $topicName = $q['topic_name']; break; } }
+                    ?>
+                        <span class="badge bg-indigo-100 text-indigo-700 rounded-pill px-3 py-1.5 text-xs">
+                            <i class="fa-solid fa-tags me-1"></i><?= esc($topicName) ?>
                         </span>
                     <?php endif; ?>
                     <?php if (!empty($filter['grade_level'])): ?>
@@ -191,7 +210,8 @@
                                 <td style="max-width: 480px;">
                                     <div class="font-medium text-gray-900 line-clamp-2"><?= $rawContent ?></div>
                                     <div class="mt-1 d-flex gap-1 flex-wrap">
-                                        <span class="badge bg-gray-100 text-gray-600 text-xs font-normal"><?= esc($q['subject']) ?></span>
+                                        <span class="badge bg-gray-100 text-gray-600 text-xs font-normal"><?= esc($q['subject_name']) ?></span>
+                                        <span class="badge bg-indigo-50 text-indigo-700 text-xs font-normal">Chủ đề: <?= esc($q['topic_name']) ?></span>
                                         <span class="badge bg-gray-100 text-gray-600 text-xs font-normal">Khối <?= esc($q['grade_level']) ?></span>
                                     </div>
                                 </td>
@@ -236,6 +256,42 @@
 // Submit form on Enter in keyword field
 document.getElementById('keywordInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); this.form.submit(); }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const filterSubject = document.getElementById('filter_subject_id');
+    const filterGrade = document.getElementById('filter_grade_level');
+    const filterTopic = document.getElementById('filter_topic_id');
+    const currentTopicId = '<?= esc($filter['topic_id'] ?? '') ?>';
+
+    function loadFilterTopics() {
+        const subjectId = filterSubject.value;
+        const gradeLevel = filterGrade.value;
+        
+        filterTopic.innerHTML = '<option value="">-- Tất cả --</option>';
+        if (!subjectId || !gradeLevel) return;
+
+        fetch(`<?= base_url('teacher/get-topics-by-subject-grade') ?>?subject_id=${subjectId}&grade_level=${gradeLevel}`)
+            .then(res => res.json())
+            .then(data => {
+                data.forEach(topic => {
+                    const option = document.createElement('option');
+                    option.value = topic.id;
+                    option.textContent = topic.name;
+                    if (currentTopicId && topic.id == currentTopicId) {
+                        option.selected = true;
+                    }
+                    filterTopic.appendChild(option);
+                });
+            });
+    }
+
+    filterSubject.addEventListener('change', loadFilterTopics);
+    filterGrade.addEventListener('change', loadFilterTopics);
+
+    if (filterSubject.value && filterGrade.value) {
+        loadFilterTopics();
+    }
 });
 </script>
 <?= $this->endSection() ?>

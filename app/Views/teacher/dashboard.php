@@ -169,6 +169,61 @@
                 </tbody>
             </table>
         </div>
+    <!-- Pending Password Reset Requests Section -->
+    <div class="bg-white rounded-2xl shadow-sm border border-amber-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-amber-100 bg-amber-50 flex items-center justify-between">
+            <h3 class="font-bold text-amber-950 text-lg flex items-center gap-2 mb-0">
+                <i class="fa-solid fa-key text-amber-600"></i>
+                Yêu Cầu Đặt Lại Mật Khẩu Trong Trường (<?= count($pending_reset_requests ?? []) ?>)
+            </h3>
+            <span class="text-xs text-amber-700 font-semibold">GV cùng trường phê duyệt &amp; reset mật khẩu về 123456</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-amber-50/50 text-gray-700 text-xs uppercase font-semibold">
+                    <tr>
+                        <th class="ps-6">Họ Và Tên</th>
+                        <th>Tên Đăng Nhập</th>
+                        <th>Vai Trò</th>
+                        <th>Thời Gian Gửi Yêu Cầu</th>
+                        <th class="text-end pe-6">Phê Duyệt / Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm">
+                    <?php if (empty($pending_reset_requests)): ?>
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-gray-400">
+                                Không có yêu cầu đặt lại mật khẩu nào đang chờ.
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($pending_reset_requests as $req): ?>
+                            <tr>
+                                <td class="ps-6 font-bold text-gray-900"><?= esc($req['full_name']) ?></td>
+                                <td><code class="bg-gray-100 px-2 py-0.5 rounded text-gray-800">@<?= esc($req['username']) ?></code></td>
+                                <td>
+                                    <span class="badge <?= $req['role'] === 'student' ? 'bg-indigo-100 text-indigo-800' : 'bg-purple-100 text-purple-800' ?> font-semibold capitalize">
+                                        <?= esc($req['role']) ?>
+                                    </span>
+                                </td>
+                                <td class="text-gray-500 text-xs"><?= date('H:i d/m/Y', strtotime($req['created_at'])) ?></td>
+                                <td class="text-end pe-6 space-x-2">
+                                    <form method="POST" action="<?= base_url("teacher/reset-user-password/{$req['id']}") ?>" style="display:inline;" onsubmit="return confirm('Xác nhận đặt lại mật khẩu cho <?= esc($req['full_name']) ?> thành 123456?');">
+                                        <input type="hidden" name="new_password" value="123456">
+                                        <button type="submit" class="btn bg-amber-500 hover:bg-amber-600 text-white btn-sm rounded-lg font-bold shadow-sm">
+                                            <i class="fa-solid fa-key me-1"></i> Đặt Lại Mật Khẩu (123456)
+                                        </button>
+                                    </form>
+                                    <a href="<?= base_url("teacher/cancel-password-request/{$req['id']}") ?>" class="btn btn-outline-secondary btn-sm rounded-lg font-medium" onclick="return confirm('Bạn có chắc muốn hủy yêu cầu này?')">
+                                        <i class="fa-solid fa-xmark me-1"></i> Hủy
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Active Sessions List -->

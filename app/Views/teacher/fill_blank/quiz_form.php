@@ -57,7 +57,7 @@
                             <div class="flex-1">
                                 <div class="font-bold text-gray-900"><?= esc($q['title']) ?></div>
                                 <div class="text-xs text-gray-500 mt-1">
-                                    <span class="badge bg-gray-100 text-gray-700 me-1"><?= esc($q['subject'] ?: 'Tin học') ?></span>
+                                    <span class="badge bg-gray-100 text-gray-700 me-1"><?= esc($q['subject_name'] ?? 'Tin học') ?> - <?= esc($q['topic_name'] ?? '') ?></span>
                                     <span class="badge bg-indigo-50 text-indigo-700"><?= $q['variant_count'] ?> phiên bản</span>
                                 </div>
                             </div>

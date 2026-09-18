@@ -66,13 +66,16 @@ class Teacher extends BaseController
         $schoolId = session()->get('school_id');
         $teacherId = session()->get('user_id');
 
+        $resetModel = new \App\Models\PasswordResetRequestModel();
+
         $data = [
-            'classes'           => $this->classModel->getClassesBySchool($schoolId),
-            'questions'         => $this->questionModel->getAllGlobalQuestions(),
-            'my_questions'      => $this->questionModel->where('creator_id', $teacherId)->countAllResults(),
-            'active_sessions'   => $this->sessionModel->where('teacher_id', $teacherId)->whereIn('status', ['waiting', 'in_progress'])->findAll(),
-            'pending_students'  => $this->userModel->getPendingStudentsBySchool($schoolId),
-            'pending_teachers'  => $this->userModel->getPendingTeachersBySchool($schoolId, $teacherId),
+            'classes'                => $this->classModel->getClassesBySchool($schoolId),
+            'questions'              => $this->questionModel->getAllGlobalQuestions(),
+            'my_questions'           => $this->questionModel->where('creator_id', $teacherId)->countAllResults(),
+            'active_sessions'        => $this->sessionModel->where('teacher_id', $teacherId)->whereIn('status', ['waiting', 'in_progress'])->findAll(),
+            'pending_students'       => $this->userModel->getPendingStudentsBySchool($schoolId),
+            'pending_teachers'       => $this->userModel->getPendingTeachersBySchool($schoolId, $teacherId),
+            'pending_reset_requests' => $resetModel->getPendingRequestsBySchool($schoolId),
         ];
 
         return view('teacher/dashboard', $data);
@@ -197,29 +200,101 @@ class Teacher extends BaseController
     }
 
     // --------------------------------------------------------------------
+    // TOPICS MANAGEMENT
+    // --------------------------------------------------------------------
+    public function topics()
+    {
+        $topicModel = new \App\Models\TopicModel();
+        $subjectModel = new \App\Models\SubjectModel();
+        
+        if ($this->request->getMethod() === 'POST') {
+            $action = $this->request->getPost('action');
+            
+            if ($action === 'create') {
+                $subjectId = (int)$this->request->getPost('subject_id');
+                $gradeLevel = (int)$this->request->getPost('grade_level');
+                $name = trim((string)$this->request->getPost('name'));
+                
+                if ($subjectId > 0 && $gradeLevel > 0 && !empty($name)) {
+                    $topicModel->insert([
+                        'subject_id' => $subjectId,
+                        'grade_level' => $gradeLevel,
+                        'name' => $name,
+                        'created_by' => session()->get('user_id'),
+                    ]);
+                    return redirect()->to(base_url('teacher/topics'))->with('success', 'Thêm chủ đề thành công!');
+                }
+                return redirect()->back()->with('error', 'Vui lòng điền đủ thông tin chủ đề.');
+            } elseif ($action === 'update') {
+                $id = (int)$this->request->getPost('id');
+                $name = trim((string)$this->request->getPost('name'));
+                if ($id > 0 && !empty($name)) {
+                    // Cần kiểm tra quyền sửa nếu cần, tạm thời cho giáo viên sửa tên chủ đề
+                    $topicModel->update($id, ['name' => $name]);
+                    return redirect()->to(base_url('teacher/topics'))->with('success', 'Cập nhật chủ đề thành công!');
+                }
+            } elseif ($action === 'delete') {
+                $id = (int)$this->request->getPost('id');
+                if ($id > 0) {
+                    $topicModel->delete($id);
+                    return redirect()->to(base_url('teacher/topics'))->with('success', 'Xóa chủ đề thành công!');
+                }
+            }
+        }
+
+        // Fetch topics with subject names
+        $topics = $topicModel->select('topics.*, subjects.name as subject_name')
+                             ->join('subjects', 'subjects.id = topics.subject_id')
+                             ->orderBy('topics.id', 'DESC')
+                             ->findAll();
+                             
+        $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
+
+        return view('teacher/topics', ['topics' => $topics, 'subjects' => $subjects]);
+    }
+
+    public function getTopicsBySubjectGrade()
+    {
+        $subjectId = (int)$this->request->getGet('subject_id');
+        $gradeLevel = (int)$this->request->getGet('grade_level');
+        
+        $topicModel = new \App\Models\TopicModel();
+        $topics = $topicModel->where('subject_id', $subjectId)
+                             ->where('grade_level', $gradeLevel)
+                             ->orderBy('name', 'ASC')
+                             ->findAll();
+                             
+        return $this->response->setJSON($topics);
+    }
+
+    // --------------------------------------------------------------------
     // GLOBAL QUESTION BANK (WYSIWYG, Image Upload, Code Snippets)
     // --------------------------------------------------------------------
     public function questions()
     {
-        $subject    = trim((string)$this->request->getGet('subject'));
+        $subjectId  = (int)$this->request->getGet('subject_id');
         $gradeLevel = (int)$this->request->getGet('grade_level');
+        $topicId    = (int)$this->request->getGet('topic_id');
         $keyword    = trim((string)$this->request->getGet('keyword'));
 
         $questions = $this->questionModel->searchQuestions(
-            $subject    ?: null,
+            $subjectId  ?: null,
             $gradeLevel ?: null,
+            $topicId    ?: null,
             $keyword    ?: null
         );
 
-        $subjects = array_column($this->questionModel->getDistinctSubjects(), 'subject');
+        $subjectModel = new \App\Models\SubjectModel();
+        $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
 
         return view('teacher/questions', [
             'questions'   => $questions,
             'teacher_id'  => session()->get('user_id'),
             'subjects'    => $subjects,
             'filter'      => [
-                'subject'     => $subject,
+                'subject_id'  => $subjectId ?: '',
                 'grade_level' => $gradeLevel ?: '',
+                'topic_id'    => $topicId ?: '',
                 'keyword'     => $keyword,
             ],
         ]);
@@ -227,6 +302,8 @@ class Teacher extends BaseController
 
     public function createQuestion()
     {
+        $subjectModel = new \App\Models\SubjectModel();
+        
         if ($this->request->getMethod() === 'POST') {
             $content       = (string)$this->request->getPost('content');
             $optionA       = (string)$this->request->getPost('option_a');
@@ -234,18 +311,20 @@ class Teacher extends BaseController
             $optionC       = $this->request->getPost('option_c') ? (string)$this->request->getPost('option_c') : null;
             $optionD       = $this->request->getPost('option_d') ? (string)$this->request->getPost('option_d') : null;
             $correctOption = (string)$this->request->getPost('correct_option');
-            $subject       = (string)$this->request->getPost('subject');
-            $gradeLevel    = (int)$this->request->getPost('grade_level');
+            $topicId       = (int)$this->request->getPost('topic_id');
             $explanation   = (string)$this->request->getPost('explanation');
 
             if (empty($content) || empty($optionA) || empty($optionB) || empty($correctOption)) {
                 return redirect()->back()->with('error', 'Nội dung câu hỏi và Đáp án A, B là bắt buộc.')->withInput();
             }
 
+            if ($topicId <= 0) {
+                return redirect()->back()->with('error', 'Vui lòng chọn Chủ đề.')->withInput();
+            }
+
             $this->questionModel->insert([
                 'creator_id'     => session()->get('user_id'),
-                'subject'        => $subject ?: 'Chung',
-                'grade_level'    => $gradeLevel ?: 10,
+                'topic_id'       => $topicId,
                 'content'        => $content,
                 'option_a'       => $optionA,
                 'option_b'       => $optionB,
@@ -258,7 +337,8 @@ class Teacher extends BaseController
             return redirect()->to(base_url('teacher/questions'))->with('success', 'Thêm câu hỏi mới vào Ngân hàng chung thành công!');
         }
 
-        return view('teacher/question_form');
+        $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
+        return view('teacher/question_form', ['subjects' => $subjects]);
     }
 
     public function editQuestion(int $id)
@@ -269,6 +349,15 @@ class Teacher extends BaseController
         }
 
         $question = $this->questionModel->find($id);
+        $subjectModel = new \App\Models\SubjectModel();
+        
+        // Cần join lấy thêm thông tin topic để pre-select môn và khối lớp trên form
+        $topicModel = new \App\Models\TopicModel();
+        $topic = $topicModel->find($question['topic_id']);
+        if ($topic) {
+            $question['subject_id'] = $topic['subject_id'];
+            $question['grade_level'] = $topic['grade_level'];
+        }
 
         if ($this->request->getMethod() === 'POST') {
             $content       = (string)$this->request->getPost('content');
@@ -277,26 +366,27 @@ class Teacher extends BaseController
             $optionC       = $this->request->getPost('option_c') ? (string)$this->request->getPost('option_c') : null;
             $optionD       = $this->request->getPost('option_d') ? (string)$this->request->getPost('option_d') : null;
             $correctOption = (string)$this->request->getPost('correct_option');
-            $subject       = (string)$this->request->getPost('subject');
-            $gradeLevel    = (int)$this->request->getPost('grade_level');
+            $topicId       = (int)$this->request->getPost('topic_id');
             $explanation   = (string)$this->request->getPost('explanation');
 
-            $this->questionModel->update($id, [
-                'subject'        => $subject ?: 'Chung',
-                'grade_level'    => $gradeLevel ?: 10,
-                'content'        => $content,
-                'option_a'       => $optionA,
-                'option_b'       => $optionB,
-                'option_c'       => !empty(trim((string)$optionC)) ? $optionC : null,
-                'option_d'       => !empty(trim((string)$optionD)) ? $optionD : null,
-                'correct_option' => $correctOption,
-                'explanation'    => $explanation,
-            ]);
+            if ($topicId > 0) {
+                $this->questionModel->update($id, [
+                    'topic_id'       => $topicId,
+                    'content'        => $content,
+                    'option_a'       => $optionA,
+                    'option_b'       => $optionB,
+                    'option_c'       => !empty(trim((string)$optionC)) ? $optionC : null,
+                    'option_d'       => !empty(trim((string)$optionD)) ? $optionD : null,
+                    'correct_option' => $correctOption,
+                    'explanation'    => $explanation,
+                ]);
+            }
 
             return redirect()->to(base_url('teacher/questions'))->with('success', 'Cập nhật câu hỏi thành công!');
         }
 
-        return view('teacher/question_form', ['question' => $question]);
+        $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
+        return view('teacher/question_form', ['question' => $question, 'subjects' => $subjects]);
     }
 
     public function deleteQuestion(int $id)
@@ -327,20 +417,18 @@ class Teacher extends BaseController
     // --------------------------------------------------------------------
     public function importAiken()
     {
+        $subjectModel = new \App\Models\SubjectModel();
+        
         if ($this->request->getMethod() === 'POST') {
             $rawText    = trim((string)$this->request->getPost('aiken_text'));
-            $subject    = trim((string)$this->request->getPost('subject'));
-            $gradeLevel = (int)$this->request->getPost('grade_level');
+            $topicId    = (int)$this->request->getPost('topic_id');
             $teacherId  = session()->get('user_id');
 
             if (empty($rawText)) {
                 return redirect()->back()->with('error', 'Vui lòng dán nội dung Aiken vào ô văn bản.')->withInput();
             }
-            if (empty($subject)) {
-                return redirect()->back()->with('error', 'Vui lòng chọn môn học.')->withInput();
-            }
-            if ($gradeLevel < 1) {
-                return redirect()->back()->with('error', 'Vui lòng chọn khối lớp.')->withInput();
+            if ($topicId <= 0) {
+                return redirect()->back()->with('error', 'Vui lòng chọn Chủ đề.')->withInput();
             }
 
             $parsed = $this->parseAikenText($rawText);
@@ -353,10 +441,9 @@ class Teacher extends BaseController
             $inserted = 0;
             $skipped  = 0;
             foreach ($parsed['questions'] as $q) {
-                // Skip duplicate: same content + subject + grade_level already in DB
+                // Skip duplicate: same content + topic already in DB
                 $existing = $this->questionModel
-                    ->where('subject', $subject)
-                    ->where('grade_level', $gradeLevel)
+                    ->where('topic_id', $topicId)
                     ->where('content', $q['content'])
                     ->first();
                 if ($existing) {
@@ -366,8 +453,7 @@ class Teacher extends BaseController
 
                 $this->questionModel->insert([
                     'creator_id'     => $teacherId,
-                    'subject'        => $subject,
-                    'grade_level'    => $gradeLevel,
+                    'topic_id'       => $topicId,
                     'content'        => esc($q['content']),
                     'option_a'       => esc($q['option_a']),
                     'option_b'       => esc($q['option_b']),
@@ -388,11 +474,12 @@ class Teacher extends BaseController
                 $msg .= ", {$parseErrors} câu bị lỗi định dạng";
             }
             $msg .= ".";
-
+            
             return redirect()->to(base_url('teacher/questions'))->with('success', $msg);
         }
 
-        return view('teacher/aiken_import');
+        $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
+        return view('teacher/aiken_import', ['subjects' => $subjects]);
     }
 
     /**
@@ -968,24 +1055,26 @@ class Teacher extends BaseController
     {
         $teacherId = session()->get('user_id');
         $schoolId  = session()->get('school_id');
+        $subjectModel = new \App\Models\SubjectModel();
 
         if ($this->request->getMethod() === 'POST') {
             $title      = trim((string)$this->request->getPost('title'));
-            $subject    = trim((string)$this->request->getPost('subject')) ?: 'Tin học';
-            $gradeLevel = (int)$this->request->getPost('grade_level') ?: 11;
+            $topicId    = (int)$this->request->getPost('topic_id');
             $vName      = trim((string)$this->request->getPost('variant_name')) ?: 'var_1';
             $vContent   = trim((string)$this->request->getPost('variant_content'));
 
             if (empty($title) || empty($vContent)) {
                 return redirect()->back()->with('error', 'Vui lòng nhập Tên câu hỏi và Nội dung biến thể mẫu.')->withInput();
             }
+            if ($topicId <= 0) {
+                return redirect()->back()->with('error', 'Vui lòng chọn Chủ đề.')->withInput();
+            }
 
             $qId = $this->fillBlankQuestionModel->insert([
                 'teacher_id'  => $teacherId,
                 'school_id'   => $schoolId,
                 'title'       => $title,
-                'subject'     => $subject,
-                'grade_level' => $gradeLevel,
+                'topic_id'    => $topicId,
             ]);
 
             $this->fillBlankVariantModel->insert([
@@ -997,16 +1086,25 @@ class Teacher extends BaseController
             return redirect()->to(base_url('teacher/fill-blank/questions'))->with('success', 'Tạo câu hỏi điền chỗ trống thành công!');
         }
 
-        return view('teacher/fill_blank/question_form', ['question' => null, 'variants' => []]);
+        $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
+        return view('teacher/fill_blank/question_form', ['question' => null, 'variants' => [], 'subjects' => $subjects]);
     }
 
     public function editFillBlankQuestion(int $id)
     {
         $teacherId = session()->get('user_id');
         $question  = $this->fillBlankQuestionModel->find($id);
+        $subjectModel = new \App\Models\SubjectModel();
 
         if (!$question || (int)$question['teacher_id'] !== $teacherId) {
             return redirect()->to(base_url('teacher/fill-blank/questions'))->with('error', 'Không tìm thấy câu hỏi.');
+        }
+
+        $topicModel = new \App\Models\TopicModel();
+        $topic = $topicModel->find($question['topic_id']);
+        if ($topic) {
+            $question['subject_id'] = $topic['subject_id'];
+            $question['grade_level'] = $topic['grade_level'];
         }
 
         if ($this->request->getMethod() === 'POST') {
@@ -1030,24 +1128,26 @@ class Teacher extends BaseController
                 return redirect()->to(base_url("teacher/fill-blank/questions/edit/{$id}"))->with('success', 'Đã xoá biến thể.');
             } else {
                 $title      = trim((string)$this->request->getPost('title'));
-                $subject    = trim((string)$this->request->getPost('subject'));
-                $gradeLevel = (int)$this->request->getPost('grade_level');
+                $topicId    = (int)$this->request->getPost('topic_id');
 
-                $this->fillBlankQuestionModel->update($id, [
-                    'title'       => $title,
-                    'subject'     => $subject,
-                    'grade_level' => $gradeLevel,
-                ]);
+                if ($topicId > 0) {
+                    $this->fillBlankQuestionModel->update($id, [
+                        'title'       => $title,
+                        'topic_id'    => $topicId,
+                    ]);
+                }
 
                 return redirect()->to(base_url('teacher/fill-blank/questions'))->with('success', 'Cập nhật câu hỏi thành công!');
             }
         }
 
         $variants = $this->fillBlankVariantModel->getVariantsByQuestion($id);
+        $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
 
         return view('teacher/fill_blank/question_form', [
             'question' => $question,
-            'variants' => $variants
+            'variants' => $variants,
+            'subjects' => $subjects
         ]);
     }
 
@@ -1265,5 +1365,66 @@ class Teacher extends BaseController
             return $this->response->setJSON(['status' => 'error'], 400);
         }
         return redirect()->back()->with('error', 'Không thể từ chối.');
+    }
+
+    public function resetUserPassword(int $requestId)
+    {
+        $teacherId  = (int)session()->get('user_id');
+        $mySchoolId = (int)session()->get('school_id');
+        $resetModel = new \App\Models\PasswordResetRequestModel();
+
+        $req = $resetModel->find($requestId);
+        if (!$req || $req['status'] !== 'pending' || (int)$req['school_id'] !== $mySchoolId) {
+            return redirect()->back()->with('error', 'Yêu cầu đặt lại mật khẩu không tồn tại, đã xử lý hoặc không thuộc trường của bạn.');
+        }
+
+        $targetUser = $this->userModel->find($req['user_id']);
+        if (!$targetUser || (int)$targetUser['school_id'] !== $mySchoolId) {
+            return redirect()->back()->with('error', 'Tài khoản cần reset không thuộc trường của bạn.');
+        }
+
+        if ($this->request->getMethod() === 'POST') {
+            $newPass = trim((string)$this->request->getPost('new_password')) ?: '123456';
+
+            if (strlen($newPass) < 6) {
+                return redirect()->back()->with('error', 'Mật khẩu mới phải từ 6 ký tự trở lên.');
+            }
+
+            // Update user password
+            $this->userModel->update($targetUser['id'], [
+                'password_hash' => password_hash($newPass, PASSWORD_BCRYPT),
+            ]);
+
+            // Update request status to completed
+            $resetModel->update($requestId, [
+                'status'               => 'completed',
+                'reset_by_teacher_id' => $teacherId,
+                'completed_at'         => date('Y-m-d H:i:s'),
+            ]);
+
+            $roleText = $targetUser['role'] === 'student' ? 'học sinh' : 'giáo viên';
+            return redirect()->back()->with('success', "Đã phê duyệt và đặt lại mật khẩu cho {$roleText} \"{$targetUser['full_name']}\" (@{$targetUser['username']}) thành: {$newPass}");
+        }
+
+        return redirect()->back();
+    }
+
+    public function cancelPasswordReset(int $requestId)
+    {
+        $teacherId  = (int)session()->get('user_id');
+        $mySchoolId = (int)session()->get('school_id');
+        $resetModel = new \App\Models\PasswordResetRequestModel();
+
+        $req = $resetModel->find($requestId);
+        if ($req && (int)$req['school_id'] === $mySchoolId) {
+            $resetModel->update($requestId, [
+                'status'               => 'cancelled',
+                'reset_by_teacher_id' => $teacherId,
+                'completed_at'         => date('Y-m-d H:i:s'),
+            ]);
+            return redirect()->back()->with('success', 'Đã hủy yêu cầu đặt lại mật khẩu.');
+        }
+
+        return redirect()->back()->with('error', 'Không thể thao tác.');
     }
 }

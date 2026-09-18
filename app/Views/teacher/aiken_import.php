@@ -1,4 +1,4 @@
-﻿<?= $this->extend('layouts/main') ?>
+<?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
 <div class="space-y-6">
@@ -30,31 +30,26 @@
                 <form method="POST" action="<?= base_url('teacher/questions/import-aiken') ?>">
                     <?= csrf_field() ?>
 
-                    <!-- Subject & Grade in one row -->
+                    <!-- Subject, Grade, Topic -->
                     <div class="row g-3 mb-4">
-                        <div class="col-sm-7">
+                        <div class="col-sm-4">
                             <label class="form-label fw-semibold text-gray-700">
                                 <i class="fa-solid fa-book me-1 text-indigo-400"></i>Môn học <span class="text-danger">*</span>
                             </label>
-                            <select name="subject" class="form-select rounded-xl" required>
-                                <option value="">-- Chọn môn học --</option>
-                                <?php
-                                $subjects = ['Toán', 'Ngữ Văn', 'Vật Lý', 'Hóa Học', 'Sinh Học',
-                                             'Lịch Sử', 'Địa Lý', 'GDCD', 'Tiếng Anh', 'Tin Học',
-                                             'Thể Dục', 'Công Nghệ', 'Âm Nhạc', 'Mỹ Thuật', 'Chung'];
-                                $old = old('subject', '');
-                                foreach ($subjects as $s): ?>
-                                    <option value="<?= esc($s) ?>" <?= $old === $s ? 'selected' : '' ?>>
-                                        <?= esc($s) ?>
+                            <select name="subject_id" id="subject_id" class="form-select rounded-xl" required>
+                                <option value="">-- Chọn môn --</option>
+                                <?php foreach ($subjects as $s): ?>
+                                    <option value="<?= esc($s['id']) ?>" <?= old('subject_id') == $s['id'] ? 'selected' : '' ?>>
+                                        <?= esc($s['name']) ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-sm-5">
+                        <div class="col-sm-4">
                             <label class="form-label fw-semibold text-gray-700">
                                 <i class="fa-solid fa-layer-group me-1 text-indigo-400"></i>Khối lớp <span class="text-danger">*</span>
                             </label>
-                            <select name="grade_level" class="form-select rounded-xl" required>
+                            <select name="grade_level" id="grade_level" class="form-select rounded-xl" required>
                                 <option value="">-- Chọn khối --</option>
                                 <?php
                                 $oldGrade = (int)old('grade_level', 0);
@@ -63,6 +58,14 @@
                                         Khối <?= $g ?>
                                     </option>
                                 <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label fw-semibold text-gray-700">
+                                <i class="fa-solid fa-tags me-1 text-indigo-400"></i>Chủ đề <span class="text-danger">*</span>
+                            </label>
+                            <select name="topic_id" id="topic_id" class="form-select rounded-xl" required>
+                                <option value="">-- Chọn Chủ đề --</option>
                             </select>
                         </div>
                     </div>
@@ -188,6 +191,45 @@ function updatePreview() {
 }
 
 document.getElementById('aikenText').addEventListener('input', updatePreview);
-updatePreview();
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initial load check
+    updatePreview();
+
+    // AJAX Load Topics
+    const subjectSelect = document.getElementById('subject_id');
+    const gradeSelect = document.getElementById('grade_level');
+    const topicSelect = document.getElementById('topic_id');
+    const currentTopicId = '<?= esc(old('topic_id') ?? '') ?>';
+
+    function loadTopics() {
+        const subjectId = subjectSelect.value;
+        const gradeLevel = gradeSelect.value;
+        
+        topicSelect.innerHTML = '<option value="">-- Chọn Chủ đề --</option>';
+        if (!subjectId || !gradeLevel) return;
+
+        fetch(`<?= base_url('teacher/get-topics-by-subject-grade') ?>?subject_id=${subjectId}&grade_level=${gradeLevel}`)
+            .then(res => res.json())
+            .then(data => {
+                data.forEach(topic => {
+                    const option = document.createElement('option');
+                    option.value = topic.id;
+                    option.textContent = topic.name;
+                    if (currentTopicId && topic.id == currentTopicId) {
+                        option.selected = true;
+                    }
+                    topicSelect.appendChild(option);
+                });
+            });
+    }
+
+    subjectSelect.addEventListener('change', loadTopics);
+    gradeSelect.addEventListener('change', loadTopics);
+
+    if (subjectSelect.value && gradeSelect.value) {
+        loadTopics();
+    }
+});
 </script>
 <?= $this->endSection() ?>

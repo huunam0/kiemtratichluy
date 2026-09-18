@@ -6,6 +6,10 @@ use CodeIgniter\Router\RouteCollection;
 
 $routes->get('/', 'Home::index');
 
+// Profile & Password Reset routes
+$routes->match(['get', 'post'], 'profile', 'Auth::profile');
+$routes->match(['get', 'post'], 'forgot-password', 'Auth::forgotPassword');
+
 // Auth routes
 $routes->group('auth', function ($routes) {
     $routes->match(['get', 'post'], 'login', 'Auth::login');
@@ -20,6 +24,7 @@ $routes->group('admin', ['filter' => 'role:admin'], function ($routes) {
     $routes->get('approve-teacher/(:num)', 'Admin::approveTeacher/$1');
     $routes->get('reject-teacher/(:num)', 'Admin::rejectTeacher/$1');
     $routes->match(['get', 'post'], 'schools', 'Admin::schools');
+    $routes->match(['get', 'post'], 'subjects', 'Admin::subjects');
 });
 
 // Teacher routes
@@ -27,11 +32,15 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->get('dashboard', 'Teacher::dashboard');
     $routes->get('approve-student/(:num)', 'Teacher::approveStudent/$1');
     $routes->get('reject-student/(:num)', 'Teacher::rejectStudent/$1');
+    $routes->match(['get', 'post'], 'reset-user-password/(:num)', 'Teacher::resetUserPassword/$1');
+    $routes->get('cancel-password-request/(:num)', 'Teacher::cancelPasswordReset/$1');
     $routes->get('approve-teacher/(:num)', 'Teacher::approveColleague/$1');
     $routes->get('reject-teacher/(:num)', 'Teacher::rejectColleague/$1');
     
-    // Classes
+    // Classes & Topics
     $routes->match(['get', 'post'], 'classes', 'Teacher::classes');
+    $routes->match(['get', 'post'], 'topics', 'Teacher::topics');
+    $routes->get('get-topics-by-subject-grade', 'Teacher::getTopicsBySubjectGrade'); // For AJAX
 
     // Questions (Global Bank)
     $routes->get('questions', 'Teacher::questions');

@@ -53,6 +53,9 @@
                             </span>
                         </div>
                     </div>
+                    <a href="<?= base_url('profile') ?>" class="btn btn-light btn-sm font-semibold rounded-lg text-indigo-900">
+                        <i class="fa-solid fa-user-gear me-1"></i> Hồ sơ
+                    </a>
                     <a href="<?= base_url('auth/logout') ?>" class="btn btn-outline-light btn-sm rounded-lg px-3">
                         <i class="fa-solid fa-right-from-bracket me-1"></i> Thoát
                     </a>

@@ -8,6 +8,9 @@
             <p class="text-gray-500 text-sm mt-0.5">Quản lý các dạng bài trắc nghiệm điền từ/mã nguồn và các phiên bản biến thể ngẫu nhiên.</p>
         </div>
         <div class="d-flex gap-2">
+            <a href="<?= base_url('teacher/topics') ?>" class="btn btn-outline-indigo rounded-xl font-semibold">
+                <i class="fa-solid fa-tags me-1"></i> Quản lý Chủ đề
+            </a>
             <a href="<?= base_url('teacher/fill-blank/quizzes') ?>" class="btn btn-outline-secondary rounded-xl font-semibold">
                 <i class="fa-solid fa-list-check me-1"></i> Quản lý Đề kiểm tra
             </a>
@@ -41,8 +44,11 @@
                             <tr>
                                 <td class="ps-4 font-mono text-sm text-gray-500">#<?= $q['id'] ?></td>
                                 <td class="fw-bold text-gray-900"><?= esc($q['title']) ?></td>
-                                <td><span class="badge bg-indigo-50 text-indigo-700 border border-indigo-200"><?= esc($q['subject'] ?: 'Tin học') ?></span></td>
-                                <td>Khối <?= esc($q['grade_level'] ?: 11) ?></td>
+                                <td>
+                                    <span class="badge bg-indigo-50 text-indigo-700 border border-indigo-200"><?= esc($q['subject_name'] ?? 'Tin học') ?></span>
+                                    <span class="badge bg-gray-100 text-gray-700 ms-1"><?= esc($q['topic_name'] ?? '') ?></span>
+                                </td>
+                                <td>Khối <?= esc($q['grade_level'] ?? 11) ?></td>
                                 <td>
                                     <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">
                                         <i class="fa-solid fa-clone me-1"></i> <?= $q['variant_count'] ?> phiên bản

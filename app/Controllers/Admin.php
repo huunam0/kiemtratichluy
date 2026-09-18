@@ -69,4 +69,38 @@ class Admin extends BaseController
         $schools = $this->schoolModel->orderBy('id', 'DESC')->findAll();
         return view('admin/schools', ['schools' => $schools]);
     }
+
+    public function subjects()
+    {
+        $subjectModel = new \App\Models\SubjectModel();
+        
+        if ($this->request->getMethod() === 'POST') {
+            $action = $this->request->getPost('action');
+            if ($action === 'create') {
+                $name = trim((string)$this->request->getPost('name'));
+                if (!empty($name)) {
+                    $subjectModel->insert(['name' => $name]);
+                    return redirect()->to(base_url('admin/subjects'))->with('success', 'Thêm môn học thành công!');
+                }
+                return redirect()->back()->with('error', 'Tên môn học không được để trống.');
+            } elseif ($action === 'update') {
+                $id = (int)$this->request->getPost('id');
+                $name = trim((string)$this->request->getPost('name'));
+                if ($id > 0 && !empty($name)) {
+                    $subjectModel->update($id, ['name' => $name]);
+                    return redirect()->to(base_url('admin/subjects'))->with('success', 'Cập nhật môn học thành công!');
+                }
+                return redirect()->back()->with('error', 'Dữ liệu không hợp lệ.');
+            } elseif ($action === 'delete') {
+                $id = (int)$this->request->getPost('id');
+                if ($id > 0) {
+                    $subjectModel->delete($id);
+                    return redirect()->to(base_url('admin/subjects'))->with('success', 'Xóa môn học thành công!');
+                }
+            }
+        }
+
+        $subjects = $subjectModel->orderBy('id', 'DESC')->findAll();
+        return view('admin/subjects', ['subjects' => $subjects]);
+    }
 }
