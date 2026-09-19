@@ -9,7 +9,7 @@
             <p class="text-indigo-200 text-sm mt-1">Hệ thống Bảo mật Xác thực qua Giáo viên</p>
         </div>
 
-        <form action="<?= base_url('forgot-password') ?>" method="POST" class="p-6 space-y-4">
+        <form action="" method="POST" class="p-6 space-y-4">
             <?= csrf_field() ?>
 
             <div>

@@ -77,6 +77,44 @@ class QuestionModel extends Model
         return $builder->orderBy('questions.id', 'DESC')->findAll();
     }
 
+    public function getQuestionsForPoolSelection(array $filters = [], array $excludeIds = [])
+    {
+        $builder = $this->select('questions.*, users.full_name as creator_name, topics.name as topic_name, subjects.name as subject_name, topics.grade_level, topics.subject_id')
+                        ->join('users', 'users.id = questions.creator_id', 'left')
+                        ->join('topics', 'topics.id = questions.topic_id', 'left')
+                        ->join('subjects', 'subjects.id = topics.subject_id', 'left');
+
+        if (!empty($filters['from_test_id'])) {
+            $builder->join('test_questions_pool tqp', 'tqp.question_id = questions.id', 'inner');
+            $builder->where('tqp.test_id', $filters['from_test_id']);
+        }
+
+        if (!empty($filters['subject_id'])) {
+            $builder->where('topics.subject_id', $filters['subject_id']);
+        }
+        if (!empty($filters['grade_level'])) {
+            $builder->where('topics.grade_level', $filters['grade_level']);
+        }
+        if (!empty($filters['topic_id'])) {
+            $builder->where('questions.topic_id', $filters['topic_id']);
+        }
+        if (!empty($filters['keyword'])) {
+            $builder->groupStart()
+                        ->like('questions.content', $filters['keyword'])
+                        ->orLike('questions.option_a', $filters['keyword'])
+                        ->orLike('questions.option_b', $filters['keyword'])
+                        ->orLike('questions.option_c', $filters['keyword'])
+                        ->orLike('questions.option_d', $filters['keyword'])
+                    ->groupEnd();
+        }
+
+        if (!empty($excludeIds)) {
+            $builder->whereNotIn('questions.id', $excludeIds);
+        }
+
+        return $builder->groupBy('questions.id')->orderBy('questions.id', 'DESC')->findAll();
+    }
+
     public function canEditOrDelete(int $questionId, int $teacherId): bool
     {
         $question = $this->find($questionId);

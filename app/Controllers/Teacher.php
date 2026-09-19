@@ -620,16 +620,80 @@ class Teacher extends BaseController
         }
 
         $poolQuestions   = $this->poolModel->getQuestionsInPool($testId);
-        $globalQuestions = $this->questionModel->getAllGlobalQuestions();
-
         $poolIds = array_column($poolQuestions, 'id');
 
         return view('teacher/pool_manage', [
             'test'             => $test,
             'pool_questions'   => $poolQuestions,
-            'global_questions' => $globalQuestions,
             'pool_ids'         => $poolIds,
         ]);
+    }
+
+    public function selectQuestionsForPool(int $testId)
+    {
+        $test = $this->testModel->find($testId);
+        if (!$test) {
+            return redirect()->to(base_url('teacher/tests'))->with('error', 'Bài kiểm tra không tồn tại.');
+        }
+
+        $subjectModel = new \App\Models\SubjectModel();
+        $topicModel = new \App\Models\TopicModel();
+        
+        $subjects = $subjectModel->findAll();
+        // Lấy tất cả bài kiểm tra của giáo viên để làm tuỳ chọn lọc từ đề khác
+        $otherTests = $this->testModel->where('teacher_id', session()->get('user_id'))->findAll();
+
+        $filters = [
+            'subject_id'   => $this->request->getGet('subject_id'),
+            'grade_level'  => $this->request->getGet('grade_level'),
+            'topic_id'     => $this->request->getGet('topic_id'),
+            'keyword'      => $this->request->getGet('keyword'),
+            'from_test_id' => $this->request->getGet('from_test_id'),
+        ];
+
+        // Retrieve existing pool questions to exclude them
+        $poolQuestions = $this->poolModel->getQuestionsInPool($testId);
+        $excludeIds = array_column($poolQuestions, 'id');
+
+        $questions = $this->questionModel->getQuestionsForPoolSelection($filters, $excludeIds);
+
+        // Fetch topics for the selected subject and grade to repopulate topic dropdown if needed
+        $topics = [];
+        if (!empty($filters['subject_id']) && !empty($filters['grade_level'])) {
+            $topics = $topicModel->where('subject_id', $filters['subject_id'])
+                                 ->where('grade_level', $filters['grade_level'])
+                                 ->findAll();
+        }
+
+        return view('teacher/pool_select_questions', [
+            'test'       => $test,
+            'questions'  => $questions,
+            'subjects'   => $subjects,
+            'topics'     => $topics,
+            'otherTests' => $otherTests,
+            'filters'    => $filters
+        ]);
+    }
+
+    public function bulkAddQuestionsToPool(int $testId)
+    {
+        $questionIds = $this->request->getPost('question_ids');
+        if (!empty($questionIds) && is_array($questionIds)) {
+            $userId = session()->get('user_id');
+            foreach ($questionIds as $qid) {
+                $existing = $this->poolModel->where('test_id', $testId)->where('question_id', $qid)->first();
+                if (!$existing) {
+                    $this->poolModel->insert([
+                        'test_id'             => $testId,
+                        'question_id'         => $qid,
+                        'added_by_teacher_id' => $userId,
+                    ]);
+                }
+            }
+            return redirect()->to(base_url("teacher/tests/pool/{$testId}"))->with('success', 'Đã thêm các câu hỏi đã chọn vào Kho tích luỹ!');
+        }
+        
+        return redirect()->back()->with('error', 'Chưa có câu hỏi nào được chọn.');
     }
 
     public function addQuestionToPool(int $testId, int $questionId)

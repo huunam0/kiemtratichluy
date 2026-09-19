@@ -53,6 +53,8 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     // Tests & Question Pools
     $routes->match(['get', 'post'], 'tests', 'Teacher::tests');
     $routes->get('tests/pool/(:num)', 'Teacher::managePool/$1');
+    $routes->match(['get', 'post'], 'tests/pool/select-questions/(:num)', 'Teacher::selectQuestionsForPool/$1');
+    $routes->post('tests/pool/bulk-add/(:num)', 'Teacher::bulkAddQuestionsToPool/$1');
     $routes->get('tests/pool/add/(:num)/(:num)', 'Teacher::addQuestionToPool/$1/$2');
     $routes->get('tests/pool/remove/(:num)/(:num)', 'Teacher::removeQuestionFromPool/$1/$2');
     $routes->get('tests/accumulated-scores/(:num)', 'Teacher::accumulatedScores/$1');
