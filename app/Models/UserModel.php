@@ -82,4 +82,61 @@ class UserModel extends Model
 
         return $builder->findAll();
     }
+
+    public function getUsersFiltered(array $filters = [], int $limit = 50, int $offset = 0): array
+    {
+        $builder = $this->select('users.*, schools.name as school_name')
+                        ->join('schools', 'schools.id = users.school_id', 'left');
+
+        if (!empty($filters['keyword'])) {
+            $kw = $filters['keyword'];
+            $builder->groupStart()
+                    ->like('users.username', $kw)
+                    ->orLike('users.full_name', $kw)
+                    ->orLike('users.email', $kw)
+                    ->groupEnd();
+        }
+
+        if (!empty($filters['role'])) {
+            $builder->where('users.role', $filters['role']);
+        }
+
+        if (!empty($filters['school_id'])) {
+            $builder->where('users.school_id', (int)$filters['school_id']);
+        }
+
+        if (!empty($filters['status'])) {
+            $builder->where('users.status', $filters['status']);
+        }
+
+        return $builder->orderBy('users.id', 'DESC')->findAll($limit, $offset);
+    }
+
+    public function countUsersFiltered(array $filters = []): int
+    {
+        $builder = $this->join('schools', 'schools.id = users.school_id', 'left');
+
+        if (!empty($filters['keyword'])) {
+            $kw = $filters['keyword'];
+            $builder->groupStart()
+                    ->like('users.username', $kw)
+                    ->orLike('users.full_name', $kw)
+                    ->orLike('users.email', $kw)
+                    ->groupEnd();
+        }
+
+        if (!empty($filters['role'])) {
+            $builder->where('users.role', $filters['role']);
+        }
+
+        if (!empty($filters['school_id'])) {
+            $builder->where('users.school_id', (int)$filters['school_id']);
+        }
+
+        if (!empty($filters['status'])) {
+            $builder->where('users.status', $filters['status']);
+        }
+
+        return $builder->countAllResults();
+    }
 }

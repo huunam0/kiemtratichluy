@@ -24,4 +24,13 @@ class PasswordResetRequestModel extends Model
                     ->orderBy('id', 'DESC')
                     ->findAll();
     }
+
+    public function getAllPendingRequests()
+    {
+        return $this->select('password_reset_requests.*, schools.name as school_name')
+                    ->join('schools', 'schools.id = password_reset_requests.school_id', 'left')
+                    ->where('password_reset_requests.status', 'pending')
+                    ->orderBy('password_reset_requests.id', 'DESC')
+                    ->findAll();
+    }
 }

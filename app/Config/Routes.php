@@ -25,6 +25,12 @@ $routes->group('admin', ['filter' => 'role:admin'], function ($routes) {
     $routes->get('reject-teacher/(:num)', 'Admin::rejectTeacher/$1');
     $routes->match(['get', 'post'], 'schools', 'Admin::schools');
     $routes->match(['get', 'post'], 'subjects', 'Admin::subjects');
+
+    // User Management & Password Reset
+    $routes->get('users', 'Admin::users');
+    $routes->post('users/reset-password/(:num)', 'Admin::resetUserPassword/$1');
+    $routes->match(['get', 'post'], 'approve-password-request/(:num)', 'Admin::approvePasswordRequest/$1');
+    $routes->get('cancel-password-request/(:num)', 'Admin::cancelPasswordRequest/$1');
 });
 
 // Teacher routes

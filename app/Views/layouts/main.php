@@ -53,6 +53,14 @@
                             </span>
                         </div>
                     </div>
+                    <?php if (session()->get('user_role') === 'admin' || session()->get('role') === 'admin'): ?>
+                        <a href="<?= base_url('admin/users') ?>" class="btn btn-warning btn-sm font-semibold rounded-lg text-indigo-950">
+                            <i class="fa-solid fa-users-gear me-1"></i> Tài khoản
+                        </a>
+                        <a href="<?= base_url('admin/dashboard') ?>" class="btn btn-indigo-100 bg-indigo-800 hover:bg-indigo-900 btn-sm font-semibold rounded-lg text-white border border-indigo-500">
+                            <i class="fa-solid fa-gauge me-1"></i> Quản trị
+                        </a>
+                    <?php endif; ?>
                     <a href="<?= base_url('profile') ?>" class="btn btn-light btn-sm font-semibold rounded-lg text-indigo-900">
                         <i class="fa-solid fa-user-gear me-1"></i> Hồ sơ
                     </a>
