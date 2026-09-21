@@ -13,8 +13,8 @@ class MarkdownQuizModel extends Model
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
     protected $allowedFields    = [
-        'teacher_id', 'school_id', 'title', 'slug',
-        'subject', 'grade_level', 'content_markdown', 'status'
+        'teacher_id', 'school_id', 'class_id', 'title', 'slug',
+        'subject', 'grade_level', 'content_markdown', 'status', 'allow_mock'
     ];
 
     // Dates
@@ -25,18 +25,22 @@ class MarkdownQuizModel extends Model
 
     public function getQuizzesByTeacher(int $teacherId)
     {
-        return $this->select('markdown_quizzes.*, users.full_name as teacher_name')
+        return $this->select('markdown_quizzes.*, users.full_name as teacher_name, classes.name as class_name')
                     ->join('users', 'users.id = markdown_quizzes.teacher_id', 'left')
+                    ->join('classes', 'classes.id = markdown_quizzes.class_id', 'left')
                     ->where('teacher_id', $teacherId)
                     ->orderBy('id', 'DESC')
                     ->findAll();
     }
 
-    public function getQuizzesBySchool(int $schoolId)
+    /**
+     * Get quizzes assigned to a specific class (for student access).
+     */
+    public function getQuizzesByClass(int $classId)
     {
         return $this->select('markdown_quizzes.*, users.full_name as teacher_name')
                     ->join('users', 'users.id = markdown_quizzes.teacher_id', 'left')
-                    ->where('markdown_quizzes.school_id', $schoolId)
+                    ->where('markdown_quizzes.class_id', $classId)
                     ->where('markdown_quizzes.status', 'active')
                     ->orderBy('markdown_quizzes.id', 'DESC')
                     ->findAll();

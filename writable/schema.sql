@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS `tests` (
     `title` VARCHAR(255) NOT NULL COMMENT 'Tên bài kiểm tra tích luỹ (VD: Tích luỹ Toán 10 - HK1)',
     `description` TEXT DEFAULT NULL COMMENT 'Mô tả bài kiểm tra',
     `status` ENUM('active', 'closed', 'archived') NOT NULL DEFAULT 'active',
+    `allow_mock` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Cho phép HS kiểm tra thử (1: Có, 0: Không)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT `fk_tests_class` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -205,3 +206,59 @@ CREATE TABLE IF NOT EXISTS `mock_test_logs` (
     CONSTRAINT `fk_mtl_test` FOREIGN KEY (`test_id`) REFERENCES `tests` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
     INDEX `idx_mtl_student` (`student_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Nhật ký kiểm tra thử (Không cộng dồn vào điểm tích luỹ)';
+
+-- 13. MARKDOWN_QUIZZES TABLE (ĐỀ TRẮC NGHIỆM MARKDOWN - GÁN THEO LỚP)
+CREATE TABLE IF NOT EXISTS `markdown_quizzes` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `teacher_id` INT UNSIGNED NOT NULL COMMENT 'Giáo viên tạo đề',
+    `school_id` INT UNSIGNED NOT NULL COMMENT 'Trường học',
+    `class_id` INT UNSIGNED DEFAULT NULL COMMENT 'Lớp học được gán (NULL = chưa gán)',
+    `title` VARCHAR(255) NOT NULL COMMENT 'Tiêu đề bài luyện tập',
+    `slug` VARCHAR(255) NOT NULL UNIQUE COMMENT 'Đường dẫn SEO-friendly',
+    `subject` VARCHAR(100) DEFAULT 'Chung' COMMENT 'Môn học',
+    `grade_level` TINYINT UNSIGNED DEFAULT 10 COMMENT 'Khối lớp',
+    `content_markdown` LONGTEXT NOT NULL COMMENT 'Nội dung Markdown đề thi',
+    `status` ENUM('active', 'hidden') NOT NULL DEFAULT 'active',
+    `allow_mock` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Cho phép HS kiểm tra thử (1: Có, 0: Không)',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_mq_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT `fk_mq_school` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT `fk_mq_class` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+    INDEX `idx_mq_teacher` (`teacher_id`),
+    INDEX `idx_mq_school` (`school_id`),
+    INDEX `idx_mq_class` (`class_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Đề trắc nghiệm Markdown — gán cho lớp học cụ thể';
+
+-- 14. MARKDOWN_QUIZ_RESULTS TABLE (KẾT QUẢ LÀM BÀI LUYỆN TẬP)
+CREATE TABLE IF NOT EXISTS `markdown_quiz_results` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `quiz_id` INT UNSIGNED NOT NULL COMMENT 'Bài luyện tập',
+    `user_id` INT UNSIGNED DEFAULT NULL COMMENT 'Học sinh (NULL nếu làm ẩn danh)',
+    `student_name` VARCHAR(100) NOT NULL COMMENT 'Tên hiển thị',
+    `score_correct` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `total_questions` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `wrong_questions_json` TEXT DEFAULT NULL COMMENT 'JSON danh sách câu sai',
+    `completed_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_mqr_quiz` FOREIGN KEY (`quiz_id`) REFERENCES `markdown_quizzes` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    INDEX `idx_mqr_quiz` (`quiz_id`),
+    INDEX `idx_mqr_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Kết quả làm bài luyện tập Markdown';
+
+-- 15. FILL_BLANK_QUIZZES TABLE (ĐỀ KIỂM TRA ĐIỀN CHỖ TRỐNG)
+CREATE TABLE IF NOT EXISTS `fill_blank_quizzes` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `teacher_id` INT UNSIGNED NOT NULL,
+    `school_id` INT UNSIGNED DEFAULT NULL,
+    `class_id` INT UNSIGNED DEFAULT NULL,
+    `title` VARCHAR(255) NOT NULL,
+    `subject` VARCHAR(100) DEFAULT NULL,
+    `time_limit` INT NOT NULL DEFAULT 15,
+    `selected_question_ids` TEXT DEFAULT NULL,
+    `status` ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    `allow_mock` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Cho phép HS kiểm tra thử (1: Có, 0: Không)',
+    `created_at` DATETIME DEFAULT NULL,
+    `updated_at` DATETIME DEFAULT NULL,
+    INDEX `idx_fbq_teacher` (`teacher_id`),
+    INDEX `idx_fbq_class` (`class_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Đề kiểm tra điền vào chỗ trống';

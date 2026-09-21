@@ -52,6 +52,7 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
 
     // Tests & Question Pools
     $routes->match(['get', 'post'], 'tests', 'Teacher::tests');
+    $routes->match(['get', 'post'], 'tests/edit/(:num)', 'Teacher::editTest/$1');
     $routes->get('tests/pool/(:num)', 'Teacher::managePool/$1');
     $routes->match(['get', 'post'], 'tests/pool/select-questions/(:num)', 'Teacher::selectQuestionsForPool/$1');
     $routes->post('tests/pool/bulk-add/(:num)', 'Teacher::bulkAddQuestionsToPool/$1');
@@ -65,6 +66,7 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->match(['get', 'post'], 'sessions', 'Teacher::sessions');
     $routes->get('sessions/control/(:num)', 'Teacher::sessionControl/$1');
     $routes->post('sessions/approve/(:num)', 'Teacher::approveParticipant/$1');
+    $routes->post('sessions/reject/(:num)', 'Teacher::rejectParticipant/$1');
     $routes->post('sessions/absent/(:num)/(:num)', 'Teacher::markAbsent/$1/$2');
     $routes->post('sessions/start/(:num)', 'Teacher::startSession/$1');
     $routes->post('sessions/end/(:num)', 'Teacher::endSession/$1');

@@ -13,7 +13,7 @@ class FillBlankQuizModel extends Model
     protected $protectFields    = true;
     protected $allowedFields    = [
         'teacher_id', 'school_id', 'class_id', 'title', 
-        'subject', 'time_limit', 'selected_question_ids', 'status'
+        'subject', 'time_limit', 'selected_question_ids', 'status', 'allow_mock'
     ];
 
     protected $useTimestamps = true;

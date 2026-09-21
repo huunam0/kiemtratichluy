@@ -26,6 +26,7 @@
                         <th>Lớp được gán</th>
                         <th>Thời gian làm bài</th>
                         <th>Số dạng bài</th>
+                        <th>Thi thử</th>
                         <th>Trạng thái</th>
                         <th class="text-end pe-4">Thao tác</th>
                     </tr>
@@ -33,7 +34,7 @@
                 <tbody class="divide-y divide-gray-100">
                     <?php if (empty($quizzes)): ?>
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-gray-400">Chưa có bài kiểm tra điền chỗ trống nào được tạo.</td>
+                            <td colspan="7" class="text-center py-5 text-gray-400">Chưa có bài kiểm tra điền chỗ trống nào được tạo.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($quizzes as $q): ?>
@@ -53,6 +54,17 @@
                                 </td>
                                 <td><i class="fa-regular fa-clock me-1 text-amber-500"></i> <?= $q['time_limit'] ?> phút</td>
                                 <td><span class="badge bg-gray-100 text-gray-800 rounded-pill px-3 py-1"><?= $qCount ?> câu</span></td>
+                                <td>
+                                    <?php if ((int)($q['allow_mock'] ?? 1) === 1): ?>
+                                        <span class="badge bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1">
+                                            <i class="fa-solid fa-check me-1"></i> Cho phép
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge bg-red-100 text-red-700 font-semibold px-2.5 py-1">
+                                            <i class="fa-solid fa-lock me-1"></i> Đã khóa
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><span class="badge bg-success-subtle text-success">Hoạt động</span></td>
                                 <td class="text-end pe-4 space-x-1">
                                     <?php if (!empty($q['class_id'])): ?>

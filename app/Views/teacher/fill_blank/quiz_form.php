@@ -35,6 +35,24 @@
                     <input type="number" name="time_limit" class="form-control rounded-xl" value="<?= esc($quiz['time_limit'] ?? 15) ?>" min="1" max="180">
                 </div>
             </div>
+
+            <!-- Allow Mock / Practice Option -->
+            <div class="mt-4 p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-2">
+                <label class="form-label fw-semibold text-gray-800 mb-1">
+                    <i class="fa-solid fa-gamepad text-teal-600 me-1"></i> Cho phép học sinh kiểm tra thử (Thi thử)?
+                </label>
+                <div class="flex items-center gap-6 mt-1">
+                    <label class="inline-flex items-center cursor-pointer text-sm font-medium text-gray-700">
+                        <input type="radio" name="allow_mock" value="1" <?= (int)old('allow_mock', $quiz['allow_mock'] ?? 1) === 1 ? 'checked' : '' ?> class="text-teal-600 focus:ring-teal-500 w-4 h-4">
+                        <span class="ms-2 text-emerald-700 font-semibold"><i class="fa-solid fa-circle-check me-1"></i> Có (Cho phép thi thử)</span>
+                    </label>
+                    <label class="inline-flex items-center cursor-pointer text-sm font-medium text-gray-700">
+                        <input type="radio" name="allow_mock" value="0" <?= (int)old('allow_mock', $quiz['allow_mock'] ?? 1) === 0 ? 'checked' : '' ?> class="text-teal-600 focus:ring-teal-500 w-4 h-4">
+                        <span class="ms-2 text-red-600 font-semibold"><i class="fa-solid fa-circle-xmark me-1"></i> Không (Khóa thi thử)</span>
+                    </label>
+                </div>
+                <p class="text-xs text-gray-500 mb-0">Khi chọn "Không", học sinh sẽ không thể bấm "Làm Bài Thử" cho đề điền chỗ trống này.</p>
+            </div>
         </div>
 
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">

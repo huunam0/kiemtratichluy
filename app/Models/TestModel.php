@@ -13,7 +13,7 @@ class TestModel extends Model
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
     protected $allowedFields    = [
-        'class_id', 'teacher_id', 'title', 'description', 'status'
+        'class_id', 'teacher_id', 'title', 'description', 'status', 'allow_mock'
     ];
 
     // Dates

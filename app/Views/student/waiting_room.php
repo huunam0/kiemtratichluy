@@ -79,6 +79,9 @@ function checkStatus() {
             } else if (data.approval_status === 'absent') {
                 alert('Bạn đã bị Giáo viên đánh vắng trong lượt thi này.');
                 window.location.href = '<?= base_url("student/dashboard") ?>';
+            } else if (data.approval_status === 'rejected') {
+                alert('Giáo viên đã từ chối cho bạn vào thi lượt này.');
+                window.location.href = '<?= base_url("student/dashboard") ?>';
             }
         })
         .catch(err => console.error('Approval check error:', err));

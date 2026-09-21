@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\MarkdownQuizModel;
 use App\Models\MarkdownQuizResultModel;
+use App\Models\ClassStudentModel;
 use App\Libraries\QuizHelper;
 require_once APPPATH . 'Libraries/Parsedown.php';
 
@@ -11,11 +12,13 @@ class PracticeQuiz extends BaseController
 {
     protected $quizModel;
     protected $resultModel;
+    protected $classStudentModel;
 
     public function __construct()
     {
-        $this->quizModel   = new MarkdownQuizModel();
-        $this->resultModel = new MarkdownQuizResultModel();
+        $this->quizModel         = new MarkdownQuizModel();
+        $this->resultModel       = new MarkdownQuizResultModel();
+        $this->classStudentModel = new ClassStudentModel();
     }
 
     public function take(string $slug)
@@ -27,6 +30,25 @@ class PracticeQuiz extends BaseController
         $quiz = $this->quizModel->getQuizBySlug($slug);
         if (!$quiz) {
             return redirect()->to('/')->with('error', 'Đề trắc nghiệm luyện tập không tồn tại hoặc đã bị ẩn.');
+        }
+
+        // Check that the student belongs to the quiz's assigned class
+        if (!empty($quiz['class_id']) && session()->get('role') === 'student') {
+            $studentId  = session()->get('user_id');
+            $membership = $this->classStudentModel
+                               ->where('class_id', $quiz['class_id'])
+                               ->where('student_id', $studentId)
+                               ->first();
+            if (!$membership) {
+                return redirect()->to(base_url('student/dashboard'))
+                                 ->with('error', 'Bài luyện tập này chỉ dành cho học sinh của lớp được gán. Bạn không có quyền truy cập.');
+            }
+        }
+
+        // Check allow_mock permission — teacher may lock the quiz
+        if ((int)($quiz['allow_mock'] ?? 1) === 0 && session()->get('role') === 'student') {
+            return redirect()->to(base_url('student/dashboard'))
+                             ->with('error', 'Giáo viên đã tạm khóa bài luyện tập này. Vui lòng thử lại sau.');
         }
 
         // Render markdown with QuizHelper and Parsedown
@@ -55,6 +77,23 @@ class PracticeQuiz extends BaseController
             return $this->response->setJSON(['status' => 'error', 'message' => 'Đề thi không tồn tại.'], 404);
         }
 
+        // Verify class membership before accepting submission
+        if (!empty($quiz['class_id']) && session()->get('role') === 'student') {
+            $studentId  = session()->get('user_id');
+            $membership = $this->classStudentModel
+                               ->where('class_id', $quiz['class_id'])
+                               ->where('student_id', $studentId)
+                               ->first();
+            if (!$membership) {
+                return $this->response->setJSON(['status' => 'error', 'message' => 'Bạn không có quyền nộp bài này.'], 403);
+            }
+        }
+
+        // Check allow_mock permission before accepting submission
+        if ((int)($quiz['allow_mock'] ?? 1) === 0 && session()->get('role') === 'student') {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Bài luyện tập này đã bị khóa. Không thể nộp bài.'], 403);
+        }
+
         $studentName    = session()->get('full_name') ?: 'Học sinh';
         $scoreCorrect   = (int)$this->request->getPost('score_correct');
         $totalQuestions = (int)$this->request->getPost('total_questions');
@@ -78,3 +117,4 @@ class PracticeQuiz extends BaseController
         ]);
     }
 }
+

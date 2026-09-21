@@ -590,6 +590,7 @@ class Teacher extends BaseController
             $classId     = (int)$this->request->getPost('class_id');
             $title       = trim((string)$this->request->getPost('title'));
             $description = trim((string)$this->request->getPost('description'));
+            $allowMock   = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
 
             if ($classId && !empty($title)) {
                 $this->testModel->insert([
@@ -598,6 +599,7 @@ class Teacher extends BaseController
                     'title'       => $title,
                     'description' => $description,
                     'status'      => 'active',
+                    'allow_mock'  => $allowMock,
                 ]);
                 return redirect()->to(base_url('teacher/tests'))->with('success', 'Tạo bài kiểm tra tích luỹ thành công!');
             }
@@ -610,6 +612,42 @@ class Teacher extends BaseController
         }
 
         return view('teacher/tests', ['tests' => $tests, 'classes' => $classes]);
+    }
+
+    public function editTest(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
+        $test      = $this->testModel->find($id);
+
+        if (!$test || (int)$test['teacher_id'] !== (int)$teacherId) {
+            return redirect()->to(base_url('teacher/tests'))->with('error', 'Bạn không có quyền sửa bài kiểm tra này.');
+        }
+
+        $classes = $this->classModel->getClassesBySchool($schoolId);
+
+        if ($this->request->getMethod() === 'POST') {
+            $classId     = (int)$this->request->getPost('class_id');
+            $title       = trim((string)$this->request->getPost('title'));
+            $description = trim((string)$this->request->getPost('description'));
+            $allowMock   = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
+
+            if ($classId && !empty($title)) {
+                $this->testModel->update($id, [
+                    'class_id'    => $classId,
+                    'title'       => $title,
+                    'description' => $description,
+                    'allow_mock'  => $allowMock,
+                ]);
+                return redirect()->to(base_url('teacher/tests'))->with('success', 'Cập nhật bài kiểm tra tích luỹ thành công!');
+            }
+            return redirect()->back()->with('error', 'Vui lòng điền đầy đủ thông tin bắt buộc.')->withInput();
+        }
+
+        return view('teacher/test_form', [
+            'test'    => $test,
+            'classes' => $classes,
+        ]);
     }
 
     public function managePool(int $testId)
@@ -786,6 +824,18 @@ class Teacher extends BaseController
                 'approval_status' => 'approved',
                 'test_status'     => 'ready',
                 'approved_at'     => date('Y-m-d H:i:s'),
+            ]);
+        }
+        return $this->response->setJSON(['status' => 'success']);
+    }
+
+    public function rejectParticipant(int $participantId)
+    {
+        $part = $this->participantModel->find($participantId);
+        if ($part) {
+            $this->participantModel->update($participantId, [
+                'approval_status' => 'rejected',
+                'test_status'     => 'absent',
             ]);
         }
         return $this->response->setJSON(['status' => 'success']);
@@ -1000,49 +1050,71 @@ class Teacher extends BaseController
     public function practiceQuizzes()
     {
         $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
         $quizzes   = $this->markdownQuizModel->getQuizzesByTeacher($teacherId);
+        $classes   = $this->classModel->getClassesBySchool($schoolId);
 
         return view('teacher/practice_quizzes', [
-            'quizzes' => $quizzes
+            'quizzes' => $quizzes,
+            'classes' => $classes,
         ]);
     }
 
     public function createPracticeQuiz()
     {
+        $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
+        $classes   = $this->classModel->getClassesBySchool($schoolId);
+
         if ($this->request->getMethod() === 'POST') {
             $title      = trim((string)$this->request->getPost('title'));
             $subject    = trim((string)$this->request->getPost('subject')) ?: 'Chung';
             $gradeLevel = (int)$this->request->getPost('grade_level') ?: 10;
             $markdown   = trim((string)$this->request->getPost('content_markdown'));
+            $classId    = (int)$this->request->getPost('class_id') ?: null;
 
             if (empty($title) || empty($markdown)) {
                 return redirect()->back()->with('error', 'Tiêu đề và Nội dung Markdown không được để trống.')->withInput();
             }
 
-            $slug = $this->markdownQuizModel->generateUniqueSlug($title);
-            $schoolId = session()->get('school_id');
+            if (!$classId) {
+                return redirect()->back()->with('error', 'Vui lòng chọn lớp học để gán đề trắc nghiệm.')->withInput();
+            }
+
+            // Verify the class belongs to this teacher's school
+            $validClass = $this->classModel->where('id', $classId)->where('school_id', $schoolId)->first();
+            if (!$validClass) {
+                return redirect()->back()->with('error', 'Lớp học không hợp lệ.')->withInput();
+            }
+
+            $allowMock  = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
+            $slug       = $this->markdownQuizModel->generateUniqueSlug($title);
 
             $this->markdownQuizModel->insert([
-                'teacher_id'       => session()->get('user_id'),
+                'teacher_id'       => $teacherId,
                 'school_id'        => $schoolId,
+                'class_id'         => $classId,
                 'title'            => $title,
                 'slug'             => $slug,
                 'subject'          => $subject,
                 'grade_level'      => $gradeLevel,
                 'content_markdown' => $markdown,
                 'status'           => 'active',
+                'allow_mock'       => $allowMock,
             ]);
 
             return redirect()->to(base_url('teacher/practice-quizzes'))->with('success', 'Tạo đề trắc nghiệm luyện tập thành công!');
         }
 
-        return view('teacher/practice_quiz_form');
+        return view('teacher/practice_quiz_form', ['classes' => $classes]);
     }
 
     public function editPracticeQuiz(int $id)
     {
         $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
         $quiz      = $this->markdownQuizModel->find($id);
+        $classes   = $this->classModel->getClassesBySchool($schoolId);
 
         if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
             return redirect()->to(base_url('teacher/practice-quizzes'))->with('error', 'Bạn không có quyền sửa đề trắc nghiệm này.');
@@ -1053,22 +1125,35 @@ class Teacher extends BaseController
             $subject    = trim((string)$this->request->getPost('subject')) ?: 'Chung';
             $gradeLevel = (int)$this->request->getPost('grade_level') ?: 10;
             $markdown   = trim((string)$this->request->getPost('content_markdown'));
+            $classId    = (int)$this->request->getPost('class_id') ?: null;
+            $allowMock  = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
 
             if (empty($title) || empty($markdown)) {
                 return redirect()->back()->with('error', 'Tiêu đề và Nội dung Markdown không được để trống.')->withInput();
+            }
+
+            if (!$classId) {
+                return redirect()->back()->with('error', 'Vui lòng chọn lớp học.')->withInput();
+            }
+
+            $validClass = $this->classModel->where('id', $classId)->where('school_id', $schoolId)->first();
+            if (!$validClass) {
+                return redirect()->back()->with('error', 'Lớp học không hợp lệ.')->withInput();
             }
 
             $this->markdownQuizModel->update($id, [
                 'title'            => $title,
                 'subject'          => $subject,
                 'grade_level'      => $gradeLevel,
+                'class_id'         => $classId,
                 'content_markdown' => $markdown,
+                'allow_mock'       => $allowMock,
             ]);
 
             return redirect()->to(base_url('teacher/practice-quizzes'))->with('success', 'Cập nhật đề trắc nghiệm luyện tập thành công!');
         }
 
-        return view('teacher/practice_quiz_form', ['quiz' => $quiz]);
+        return view('teacher/practice_quiz_form', ['quiz' => $quiz, 'classes' => $classes]);
     }
 
     public function deletePracticeQuiz(int $id)
@@ -1250,6 +1335,7 @@ class Teacher extends BaseController
             $classId     = (int)$this->request->getPost('class_id');
             $timeLimit   = (int)$this->request->getPost('time_limit') ?: 15;
             $selectedQs  = $this->request->getPost('selected_questions') ?: [];
+            $allowMock   = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
 
             if (empty($title) || empty($selectedQs)) {
                 return redirect()->back()->with('error', 'Vui lòng nhập Tên bài kiểm tra và chọn ít nhất 1 câu hỏi.')->withInput();
@@ -1264,6 +1350,7 @@ class Teacher extends BaseController
                 'time_limit'            => $timeLimit,
                 'selected_question_ids' => json_encode($selectedQs),
                 'status'                => 'active',
+                'allow_mock'            => $allowMock,
             ]);
 
             return redirect()->to(base_url('teacher/fill-blank/quizzes'))->with('success', 'Tạo bài kiểm tra điền chỗ trống thành công!');
@@ -1294,6 +1381,7 @@ class Teacher extends BaseController
             $classId     = (int)$this->request->getPost('class_id');
             $timeLimit   = (int)$this->request->getPost('time_limit') ?: 15;
             $selectedQs  = $this->request->getPost('selected_questions') ?: [];
+            $allowMock   = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
 
             if (empty($title) || empty($selectedQs)) {
                 return redirect()->back()->with('error', 'Vui lòng chọn ít nhất 1 câu hỏi.')->withInput();
@@ -1304,6 +1392,7 @@ class Teacher extends BaseController
                 'class_id'              => $classId,
                 'time_limit'            => $timeLimit,
                 'selected_question_ids' => json_encode($selectedQs),
+                'allow_mock'            => $allowMock,
             ]);
 
             return redirect()->to(base_url('teacher/fill-blank/quizzes'))->with('success', 'Cập nhật bài kiểm tra thành công!');

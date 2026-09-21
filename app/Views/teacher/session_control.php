@@ -134,9 +134,12 @@ function renderParticipants(participants) {
     participants.forEach(p => {
         let approvalBadge = '';
         if (p.approval_status === 'pending') {
-            approvalBadge = `<button onclick="approveStudent(${p.id})" class="btn btn-success btn-sm rounded-lg font-bold shadow-sm animate-bounce"><i class="fa-solid fa-check me-1"></i> PHE DUYỆT</button>`;
+            approvalBadge = `<button onclick="approveStudent(${p.id})" class="btn btn-success btn-sm rounded-lg font-bold shadow-sm animate-bounce"><i class="fa-solid fa-check me-1"></i> PHÊ DUYỆT</button>
+                             <button onclick="rejectStudent(${p.id})" class="btn btn-danger btn-sm rounded-lg font-bold ms-1"><i class="fa-solid fa-xmark me-1"></i> Từ chối</button>`;
         } else if (p.approval_status === 'approved') {
             approvalBadge = '<span class="badge bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1"><i class="fa-solid fa-circle-check me-1"></i> Đã duyệt</span>';
+        } else if (p.approval_status === 'rejected') {
+            approvalBadge = '<span class="badge bg-red-100 text-red-700 font-bold px-2.5 py-1"><i class="fa-solid fa-circle-xmark me-1"></i> Đã từ chối</span>';
         } else if (p.approval_status === 'absent') {
             approvalBadge = '<span class="badge bg-red-600 text-white font-bold px-2.5 py-1"><i class="fa-solid fa-user-xmark me-1"></i> ĐÁNH VẮNG (+0/+3)</span>';
         }
@@ -183,6 +186,18 @@ function approveStudent(participantId) {
     formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
 
     fetch('<?= base_url("teacher/sessions/approve/") ?>' + participantId, {
+        method: 'POST',
+        body: formData
+    }).then(() => fetchParticipants());
+}
+
+function rejectStudent(participantId) {
+    if (!confirm('Bạn có chắc muốn TỪ CHỐI học sinh này không được vào thi?')) return;
+
+    const formData = new FormData();
+    formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+    fetch('<?= base_url("teacher/sessions/reject/") ?>' + participantId, {
         method: 'POST',
         body: formData
     }).then(() => fetchParticipants());

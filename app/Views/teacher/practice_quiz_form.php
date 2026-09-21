@@ -48,6 +48,45 @@
                 </div>
             </div>
 
+            <!-- Class Assignment (Required) -->
+            <div>
+                <label class="form-label font-semibold text-gray-700">
+                    Gán vào Lớp học <span class="text-danger">*</span>
+                </label>
+                <select name="class_id" required class="form-select rounded-xl">
+                    <option value="">-- Chọn lớp học --</option>
+                    <?php
+                    $curClassId = (int)old('class_id', $quiz['class_id'] ?? 0);
+                    foreach ($classes as $cls): ?>
+                        <option value="<?= $cls['id'] ?>" <?= $curClassId === (int)$cls['id'] ? 'selected' : '' ?>>
+                            <?= esc($cls['name']) ?> (Khối <?= $cls['grade_level'] ?> — <?= $cls['academic_year'] ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">
+                    <i class="fa-solid fa-circle-info text-indigo-400 me-1"></i>
+                    Chỉ học sinh thuộc lớp này mới thấy và làm được bài luyện tập.
+                </p>
+            </div>
+
+            <!-- Allow Mock / Practice Option -->
+            <div class="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-2">
+                <label class="form-label font-semibold text-gray-800 mb-1">
+                    <i class="fa-solid fa-gamepad text-indigo-600 me-1"></i> Cho phép học sinh kiểm tra thử?
+                </label>
+                <div class="flex items-center gap-6 mt-1">
+                    <label class="inline-flex items-center cursor-pointer text-sm font-medium text-gray-700">
+                        <input type="radio" name="allow_mock" value="1" <?= (int)old('allow_mock', $quiz['allow_mock'] ?? 1) === 1 ? 'checked' : '' ?> class="text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                        <span class="ms-2 text-emerald-700 font-semibold"><i class="fa-solid fa-circle-check me-1"></i> Có (Mặc định - Cho phép làm bài)</span>
+                    </label>
+                    <label class="inline-flex items-center cursor-pointer text-sm font-medium text-gray-700">
+                        <input type="radio" name="allow_mock" value="0" <?= (int)old('allow_mock', $quiz['allow_mock'] ?? 1) === 0 ? 'checked' : '' ?> class="text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                        <span class="ms-2 text-red-600 font-semibold"><i class="fa-solid fa-circle-xmark me-1"></i> Không (Khóa bài kiểm tra thử)</span>
+                    </label>
+                </div>
+                <p class="text-xs text-gray-500 mb-0">Khi chọn "Không", học sinh lớp này sẽ không thể vào làm bài kiểm tra thử này nữa.</p>
+            </div>
+
             <!-- Editor Header / Tool Button -->
             <div class="d-flex justify-content-between align-items-center pt-2">
                 <label class="form-label font-semibold text-gray-700 mb-0">Nội dung Markdown bài trắc nghiệm <span class="text-danger">*</span></label>

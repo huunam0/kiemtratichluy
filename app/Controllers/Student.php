@@ -96,10 +96,21 @@ class Student extends BaseController
         }
 
         $markdownQuizModel = new \App\Models\MarkdownQuizModel();
-        $schoolId = session()->get('school_id');
-        $practiceQuizzes = $markdownQuizModel->getQuizzesBySchool($schoolId);
+        $practiceQuizzes = [];
+        foreach ($classes as $cls) {
+            $classQuizzes = $markdownQuizModel->getQuizzesByClass($cls['id']);
+            foreach ($classQuizzes as $q) {
+                // Avoid duplicates if student is in multiple classes with same quiz (unlikely but safe)
+                if (!isset($practiceQuizzes[$q['id']])) {
+                    $q['class_name']           = $cls['name'];
+                    $practiceQuizzes[$q['id']] = $q;
+                }
+            }
+        }
+        $practiceQuizzes = array_values($practiceQuizzes);
 
         // Fetch Fill-in-the-blank Quizzes & Active Real Sessions
+        $schoolId         = session()->get('school_id');
         $fillBlankQuizzes = $this->fillBlankQuizModel->getQuizzesBySchool($schoolId);
         $fillBlankActiveSessions = [];
         foreach ($classes as $cls) {
@@ -413,6 +424,11 @@ class Student extends BaseController
             return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không tồn tại.');
         }
 
+        // Check allow_mock permission
+        if ((int)($test['allow_mock'] ?? 1) === 0) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Giáo viên đã tắt chức năng kiểm tra thử cho bài kiểm tra này.');
+        }
+
         $numQuestions = (int)($this->request->getGet('num_questions') ?? $this->request->getPost('num_questions') ?? 0);
 
         if ($numQuestions < 3 || $numQuestions > 6) {
@@ -484,6 +500,11 @@ class Student extends BaseController
             return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không tồn tại.');
         }
 
+        // Check allow_mock permission
+        if ((int)($quiz['allow_mock'] ?? 1) === 0) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Giáo viên đã tạm khóa chức năng kiểm tra thử cho bài kiểm tra này.');
+        }
+
         $questionIds = json_decode($quiz['selected_question_ids'] ?: '[]', true);
         $questionsData = [];
 
@@ -517,6 +538,11 @@ class Student extends BaseController
 
         if (!$quiz) {
             return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không tồn tại.');
+        }
+
+        // Check allow_mock permission
+        if ((int)($quiz['allow_mock'] ?? 1) === 0) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra này đã bị khóa kiểm tra thử.');
         }
 
         $userAnswers = $this->request->getPost('answers') ?: [];
