@@ -109,6 +109,7 @@ $routes->group('student', ['filter' => 'role:student'], function ($routes) {
     // Real Test Taking
     $routes->get('join-session/(:num)', 'Student::joinSession/$1');
     $routes->get('waiting-room/(:num)', 'Student::joinSession/$1');
+    $routes->get('cancel-session/(:num)', 'Student::cancelSession/$1');
     $routes->get('check-approval/(:num)', 'Student::checkApprovalStatus/$1');
     $routes->get('exam/(:num)', 'Student::startExam/$1');
     $routes->post('save-answer', 'Student::saveAnswer');
@@ -125,6 +126,7 @@ $routes->group('student', ['filter' => 'role:student'], function ($routes) {
 
     $routes->get('fill-blank/join-session/(:num)', 'Student::joinFillBlankSession/$1');
     $routes->get('fill-blank/waiting-room/(:num)', 'Student::fillBlankWaitingRoom/$1');
+    $routes->get('fill-blank/cancel-session/(:num)', 'Student::cancelFillBlankSession/$1');
     $routes->get('fill-blank/check-approval/(:num)', 'Student::checkFillBlankApproval/$1');
     $routes->get('fill-blank/exam/(:num)', 'Student::startFillBlankExam/$1');
     $routes->post('fill-blank/submit-exam/(:num)', 'Student::submitFillBlankExam/$1');

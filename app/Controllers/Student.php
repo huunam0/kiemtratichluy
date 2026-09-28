@@ -199,6 +199,24 @@ class Student extends BaseController
         ]);
     }
 
+    public function cancelSession(int $participantId)
+    {
+        $studentId = session()->get('user_id');
+        $part = $this->participantModel->find($participantId);
+
+        if (!$part || (int)$part['student_id'] !== (int)$studentId) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Không tìm thấy lượt đăng ký thi.');
+        }
+
+        if (in_array($part['test_status'], ['in_test', 'submitted', 'timed_out'])) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bạn đã bắt đầu hoặc hoàn thành bài thi, không thể hủy yêu cầu.');
+        }
+
+        $this->participantModel->delete($participantId);
+
+        return redirect()->to(base_url('student/dashboard'))->with('success', 'Đã rút lại yêu cầu tham gia lượt thi thành công.');
+    }
+
     // --------------------------------------------------------------------
     // REAL TEST TAKING FLOW (MOBILE-FIRST UI)
     // --------------------------------------------------------------------
@@ -652,6 +670,24 @@ class Student extends BaseController
             'approval_status' => $part['approval_status'],
             'test_status'     => $part['test_status'],
         ]);
+    }
+
+    public function cancelFillBlankSession(int $participantId)
+    {
+        $studentId = session()->get('user_id');
+        $part = $this->fillBlankParticipantModel->find($participantId);
+
+        if (!$part || (int)$part['student_id'] !== (int)$studentId) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Không tìm thấy lượt đăng ký thi.');
+        }
+
+        if (in_array($part['test_status'], ['in_test', 'submitted', 'timed_out'])) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bạn đã bắt đầu hoặc hoàn thành bài thi, không thể hủy yêu cầu.');
+        }
+
+        $this->fillBlankParticipantModel->delete($participantId);
+
+        return redirect()->to(base_url('student/dashboard'))->with('success', 'Đã rút lại yêu cầu tham gia lượt thi điền vào chỗ trống.');
     }
 
     public function startFillBlankExam(int $participantId)

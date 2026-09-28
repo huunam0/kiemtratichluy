@@ -52,6 +52,21 @@
             </div>
         </div>
 
+        <!-- Cancel / Withdraw Request Box -->
+        <div id="cancelRequestBox" class="pt-2 border-t border-gray-100 space-y-2">
+            <p class="text-xs text-gray-500 mb-2">Nếu bạn bấm nhầm hoặc muốn đổi ý, bạn có thể rút lại yêu cầu:</p>
+            <div class="flex items-center justify-center gap-3">
+                <a href="<?= base_url('student/dashboard') ?>" class="btn btn-outline-secondary rounded-xl px-4 py-2 text-sm font-semibold">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Về Bảng Điều Khiển
+                </a>
+                <a href="<?= base_url("student/cancel-session/{$participant['id']}") ?>" 
+                   class="btn btn-outline-danger hover:bg-red-600 hover:text-white rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition"
+                   onclick="return confirm('Bạn có chắc chắn muốn hủy / rút lại yêu cầu tham gia lượt thi này không?');">
+                    <i class="fa-solid fa-xmark me-1"></i> Hủy Yêu Cầu Vào Thi
+                </a>
+            </div>
+        </div>
+
         <div class="text-xs text-gray-400">
             <i class="fa-solid fa-wifi me-1"></i> Tự động kết nối thời gian thực với máy chủ.
         </div>
@@ -73,6 +88,7 @@ function checkStatus() {
 
             if (data.approval_status === 'approved') {
                 document.getElementById('statusAlert').classList.add('hidden');
+                document.getElementById('cancelRequestBox').classList.add('hidden');
                 document.getElementById('questionChoiceBox').classList.remove('hidden');
                 document.getElementById('iconBox').className = 'w-20 h-20 mx-auto rounded-3xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-4xl font-bold';
                 document.getElementById('iconBox').innerHTML = '<i class="fa-solid fa-list-check"></i>';

@@ -22,9 +22,14 @@
 
         <p class="text-xs text-gray-400">Trang web sẽ tự động chuyển sang bài làm ngay khi Giáo viên phê duyệt thành công.</p>
 
-        <div>
-            <a href="<?= base_url('student/dashboard') ?>" class="btn btn-outline-secondary rounded-xl px-5">
-                <i class="fa-solid fa-arrow-left me-1"></i> Rời phòng chờ
+        <div class="flex flex-wrap justify-center gap-3">
+            <a href="<?= base_url('student/dashboard') ?>" class="btn btn-outline-secondary rounded-xl px-4 py-2 text-sm font-semibold">
+                <i class="fa-solid fa-arrow-left me-1"></i> Về Bảng Điều Khiển
+            </a>
+            <a href="<?= base_url("student/fill-blank/cancel-session/{$participant['id']}") ?>" 
+               class="btn btn-outline-danger hover:bg-red-600 hover:text-white rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition"
+               onclick="return confirm('Bạn có chắc chắn muốn hủy / rút lại yêu cầu tham gia lượt thi này không?');">
+                <i class="fa-solid fa-xmark me-1"></i> Hủy Yêu Cầu Vào Thi
             </a>
         </div>
     </div>

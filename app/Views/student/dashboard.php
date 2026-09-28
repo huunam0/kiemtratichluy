@@ -61,6 +61,19 @@
                                 <a href="<?= base_url("student/exam/{$myPart['id']}") ?>" class="btn btn-warning bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl px-4 py-3 shadow-md no-underline">
                                     <i class="fa-solid fa-play me-1"></i> Tiếp Tục Làm Bài
                                 </a>
+                            <?php elseif ($myPart && $myPart['approval_status'] === 'pending'): ?>
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <a href="<?= base_url("student/join-session/{$sess['id']}") ?>" class="btn btn-warning bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl px-4 py-2.5 shadow-md no-underline">
+                                        <i class="fa-solid fa-hourglass-half me-1"></i> Phòng Chờ Duyệt
+                                    </a>
+                                    <a href="<?= base_url("student/cancel-session/{$myPart['id']}") ?>" class="btn btn-outline-danger hover:bg-red-600 hover:text-white rounded-xl px-3 py-2.5 text-sm font-semibold no-underline" onclick="return confirm('Bạn có chắc chắn muốn hủy / rút lại yêu cầu tham gia lượt thi này không?');" title="Hủy yêu cầu tham gia lượt thi">
+                                        <i class="fa-solid fa-xmark me-1"></i> Hủy Yêu Cầu
+                                    </a>
+                                </div>
+                            <?php elseif ($myPart && $myPart['approval_status'] === 'approved' && $myPart['test_status'] === 'ready'): ?>
+                                <a href="<?= base_url("student/join-session/{$sess['id']}") ?>" class="btn bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-4 py-3 shadow-md no-underline">
+                                    <i class="fa-solid fa-play me-1"></i> Vào Làm Bài Ngay
+                                </a>
                             <?php else: ?>
                                 <a href="<?= base_url("student/join-session/{$sess['id']}") ?>" class="btn btn-indigo bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl px-4 py-3 shadow-md no-underline">
                                     Tham Gia <i class="fa-solid fa-arrow-right ms-1"></i>
@@ -167,9 +180,14 @@
                                     <i class="fa-solid fa-play me-1"></i> Vào Làm Bài Ngay
                                 </a>
                             <?php elseif ($myFbPart && $myFbPart['approval_status'] === 'pending'): ?>
-                                <a href="<?= base_url("student/fill-blank/waiting-room/{$myFbPart['id']}") ?>" class="btn bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl px-4 py-2.5 shadow-md no-underline">
-                                    <i class="fa-solid fa-hourglass-half me-1"></i> Vào Phòng Chờ Duyệt
-                                </a>
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <a href="<?= base_url("student/fill-blank/waiting-room/{$myFbPart['id']}") ?>" class="btn bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl px-4 py-2.5 shadow-md no-underline">
+                                        <i class="fa-solid fa-hourglass-half me-1"></i> Phòng Chờ Duyệt
+                                    </a>
+                                    <a href="<?= base_url("student/fill-blank/cancel-session/{$myFbPart['id']}") ?>" class="btn btn-outline-danger hover:bg-red-600 hover:text-white rounded-xl px-3 py-2.5 text-sm font-semibold no-underline" onclick="return confirm('Bạn có chắc chắn muốn hủy / rút lại yêu cầu tham gia lượt thi này không?');" title="Hủy yêu cầu tham gia lượt thi">
+                                        <i class="fa-solid fa-xmark me-1"></i> Hủy Yêu Cầu
+                                    </a>
+                                </div>
                             <?php else: ?>
                                 <a href="<?= base_url("student/fill-blank/join-session/{$fbSess['id']}") ?>" class="btn bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl px-4 py-2.5 shadow-md no-underline">
                                     Đăng Ký Thi <i class="fa-solid fa-arrow-right ms-1"></i>
