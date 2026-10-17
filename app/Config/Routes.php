@@ -55,6 +55,7 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->get('questions/delete/(:num)', 'Teacher::deleteQuestion/$1');
     $routes->post('questions/upload-image', 'Teacher::uploadImage');
     $routes->match(['get', 'post'], 'questions/import-aiken', 'Teacher::importAiken');
+    $routes->post('questions/export-aiken', 'Teacher::exportQuestionsAiken');
 
     // Tests & Question Pools
     $routes->match(['get', 'post'], 'tests', 'Teacher::tests');

@@ -400,6 +400,69 @@ class Teacher extends BaseController
         return redirect()->to(base_url('teacher/questions'))->with('success', 'Đã xoá câu hỏi!');
     }
 
+    // --------------------------------------------------------------------
+    // EXPORT QUESTIONS AS AIKEN FORMAT
+    // --------------------------------------------------------------------
+    public function exportQuestionsAiken()
+    {
+        $ids = $this->request->getPost('question_ids');
+
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->to(base_url('teacher/questions'))->with('error', 'Vui lòng chọn ít nhất một câu hỏi để xuất!');
+        }
+
+        // Sanitize IDs
+        $ids = array_map('intval', $ids);
+        $ids = array_filter($ids, fn($id) => $id > 0);
+
+        if (empty($ids)) {
+            return redirect()->to(base_url('teacher/questions'))->with('error', 'ID câu hỏi không hợp lệ.');
+        }
+
+        // Fetch questions
+        $questions = $this->questionModel
+            ->select('questions.*, topics.name as topic_name, subjects.name as subject_name, topics.grade_level')
+            ->join('topics', 'topics.id = questions.topic_id', 'left')
+            ->join('subjects', 'subjects.id = topics.subject_id', 'left')
+            ->whereIn('questions.id', $ids)
+            ->findAll();
+
+        if (empty($questions)) {
+            return redirect()->to(base_url('teacher/questions'))->with('error', 'Không tìm thấy câu hỏi nào!');
+        }
+
+        // Build Aiken text
+        $lines = [];
+        foreach ($questions as $q) {
+            // Strip HTML tags from content
+            $content = html_entity_decode(strip_tags($q['content']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $content = trim(preg_replace('/\s+/', ' ', $content));
+
+            $lines[] = $content;
+
+            foreach (['A' => 'option_a', 'B' => 'option_b', 'C' => 'option_c', 'D' => 'option_d'] as $letter => $field) {
+                if (!empty($q[$field])) {
+                    $optText = html_entity_decode(strip_tags($q[$field]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $optText = trim(preg_replace('/\s+/', ' ', $optText));
+                    $lines[] = $letter . '. ' . $optText;
+                }
+            }
+
+            $lines[] = 'ANSWER: ' . strtoupper($q['correct_option']);
+            $lines[] = ''; // blank line separator
+        }
+
+        $output = implode("\n", $lines);
+        $filename = 'questions_export_' . date('Ymd_His') . '.txt';
+
+        return $this->response
+            ->setHeader('Content-Type', 'text/plain; charset=utf-8')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->setBody($output);
+    }
+
+
     public function uploadImage()
     {
         $file = $this->request->getFile('image');
