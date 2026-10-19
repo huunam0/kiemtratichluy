@@ -9,6 +9,9 @@
             <div class="flex items-center gap-2 mb-1">
                 <span class="badge bg-indigo-100 text-indigo-800 font-bold">Lớp <?= esc($class['name'] ?? '') ?></span>
                 <span class="badge bg-gray-100 text-gray-700">Khối <?= esc($class['grade_level'] ?? '') ?></span>
+                <span class="badge bg-amber-100 text-amber-800 font-semibold">
+                    <i class="fa-solid fa-circle-check me-1"></i>Số câu tối thiểu: <?= (int)($test['min_questions'] ?? 20) ?> câu
+                </span>
             </div>
             <h1 class="text-2xl font-bold text-gray-900 mb-0">Bảng Điểm Tích Luỹ Cộng Dồn Học Sinh</h1>
             <p class="text-gray-500 text-sm mt-1 mb-0">
@@ -17,8 +20,13 @@
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
+            <!-- Export Excel Button -->
+            <a href="<?= base_url("teacher/tests/export-excel/{$test['id']}") ?>" class="btn btn-success btn-sm rounded-xl font-bold shadow-sm">
+                <i class="fa-solid fa-file-excel me-1"></i> Xuất Excel
+            </a>
+
             <!-- Random Pick Button -->
-            <button type="button" class="btn btn-success btn-sm rounded-xl font-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#randomPickModal">
+            <button type="button" class="btn btn-outline-secondary btn-sm rounded-xl font-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#randomPickModal">
                 <i class="fa-solid fa-dice me-1"></i> Gọi Ngẫu Nhiên
             </button>
 
@@ -45,6 +53,7 @@
                         <th class="ps-6" style="width: 70px;">Hạng</th>
                         <th>Họ Và Tên Học Sinh</th>
                         <th>Tên Đăng Nhập</th>
+                        <th class="text-center">Số Lượt Thi</th>
                         <th class="text-center">Tổng Câu Đúng</th>
                         <th class="text-center">Tổng Câu Đã Làm</th>
                         <th class="text-center">ĐIỂM TÍCH LUỸ (HỆ 10)</th>
@@ -54,7 +63,7 @@
                 <tbody class="divide-y divide-gray-100 text-sm">
                     <?php if (empty($scores_list)): ?>
                         <tr>
-                            <td colspan="7" class="text-center py-8 text-gray-400">
+                            <td colspan="8" class="text-center py-8 text-gray-400">
                                 Lớp học này chưa có học sinh nào đăng ký.
                             </td>
                         </tr>
@@ -70,6 +79,8 @@
                                 } elseif ($rank === 3 && $st['has_score']) {
                                     $rankBadge = '<span class="w-8 h-8 rounded-full bg-amber-600 text-white font-black inline-flex items-center justify-center shadow-sm">3</span>';
                                 }
+                                $minQ = $min_questions ?? 20;
+                                $lacking = $minQ - $st['total_attempted'];
                             ?>
                             <tr>
                                 <td class="ps-6 font-bold text-center"><?= $rankBadge ?></td>
@@ -78,6 +89,7 @@
                                     <div class="text-xs text-gray-500"><?= esc($st['email']) ?></div>
                                 </td>
                                 <td><code class="bg-gray-100 px-2 py-0.5 rounded text-gray-800 font-mono">@<?= esc($st['username']) ?></code></td>
+                                <td class="text-center font-semibold text-gray-700"><?= $st['real_count'] ?? 0 ?> lượt</td>
                                 <td class="text-center font-bold text-emerald-600"><?= $st['total_correct'] ?> câu</td>
                                 <td class="text-center font-semibold text-gray-700"><?= $st['total_attempted'] ?> câu</td>
                                 <td class="text-center">
@@ -103,6 +115,7 @@
     </div>
 
 </div>
+
 
 <!-- ============================================================ -->
 <!-- RANDOM PICK MODAL -->

@@ -6,9 +6,22 @@
     <!-- Header Card -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-            <div class="flex items-center gap-2 mb-1">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
                 <span class="badge bg-indigo-100 text-indigo-800 font-bold">Lớp <?= esc($class['name'] ?? '') ?></span>
                 <span class="badge bg-gray-100 text-gray-700">Học Sinh: <?= esc($student['full_name']) ?> (@<?= esc($student['username']) ?>)</span>
+                <span class="badge bg-amber-100 text-amber-800 font-semibold">
+                    <i class="fa-solid fa-circle-check me-1"></i>Tối thiểu: <?= (int)($test['min_questions'] ?? 20) ?> câu
+                </span>
+                <?php 
+                    $minQ = (int)($test['min_questions'] ?? 20);
+                    $totalAttempted = $accumulated ? (int)$accumulated['total_attempted'] : 0;
+                    $lacking = max(0, $minQ - $totalAttempted);
+                    if ($lacking > 0): 
+                ?>
+                    <span class="badge bg-orange-100 text-orange-700 font-bold">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i>Bạn còn thiếu <?= $lacking ?> câu hỏi
+                    </span>
+                <?php endif; ?>
             </div>
             <h1 class="text-2xl font-bold text-gray-900 mb-0">Lịch Sử & Chi Tiết Điểm Tích Luỹ Từng Lượt Thi</h1>
             <p class="text-gray-500 text-sm mt-1 mb-0">

@@ -47,6 +47,19 @@
                     <p class="text-xs text-gray-400 mt-1">Khi tắt, học sinh sẽ không thể bấm "Thi Thử Ngay" từ kho câu hỏi này.</p>
                 </div>
 
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">
+                        <i class="fa-solid fa-list-ol text-amber-500 me-1"></i>
+                        Số câu hỏi tối thiểu <span class="text-red-500">*</span>
+                    </label>
+                    <input type="number" name="min_questions" min="1" max="9999" value="20"
+                           class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500"
+                           placeholder="Mặc định: 20">
+                    <p class="text-xs text-gray-400 mt-1">
+                        Học sinh phải làm đủ số câu này mới được tính điểm đầy đủ. Học sinh làm chưa đủ sẽ thấy thông báo nhắc nhở.
+                    </p>
+                </div>
+
                 <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition">
                     Tạo Bài Kiểm Tra <i class="fa-solid fa-plus ms-1"></i>
                 </button>
@@ -91,6 +104,11 @@
                                         <span class="badge bg-amber-100 text-amber-800 font-bold px-2.5 py-1">
                                             <i class="fa-solid fa-database me-1"></i> <?= $t['total_questions'] ?> câu trong Pool
                                         </span>
+                                        <div class="mt-1">
+                                            <span class="badge bg-purple-50 text-purple-700 font-semibold px-2 py-0.5 text-xs border border-purple-100">
+                                                <i class="fa-solid fa-list-ol me-1"></i> Tối thiểu: <?= (int)($t['min_questions'] ?? 20) ?> câu
+                                            </span>
+                                        </div>
                                     </td>
                                     <td>
                                         <?php if ((int)($t['allow_mock'] ?? 1) === 1): ?>

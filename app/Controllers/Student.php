@@ -90,7 +90,14 @@ class Student extends BaseController
                 $acc = $this->accumulatedModel->where('student_id', $studentId)
                                               ->where('test_id', $t['id'])
                                               ->first();
-                $t['accumulated'] = $acc;
+                $t['accumulated']   = $acc;
+                $t['min_questions'] = (int)($t['min_questions'] ?? 20);
+                // Calculate temp GPA for display
+                $totalAttempted     = $acc ? (int)$acc['total_attempted'] : 0;
+                $totalCorrect       = $acc ? (int)$acc['total_correct']   : 0;
+                $t['temp_gpa']      = ($totalAttempted > 0)
+                    ? round($totalCorrect / $totalAttempted * 10, 2)
+                    : null;
                 $accumulatedScores[] = $t;
             }
         }

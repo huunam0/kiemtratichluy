@@ -57,6 +57,18 @@
                 </p>
             </div>
 
+            <div class="p-4 bg-amber-50 border border-amber-100 rounded-xl space-y-2">
+                <label class="block text-sm font-semibold text-gray-800">
+                    <i class="fa-solid fa-list-ol text-amber-500 me-1"></i> Số câu hỏi tối thiểu <span class="text-red-500">*</span>
+                </label>
+                <input type="number" name="min_questions" min="1" max="9999"
+                       value="<?= esc(old('min_questions', $test['min_questions'] ?? 20)) ?>"
+                       class="w-full px-4 py-2.5 rounded-xl border border-amber-200 focus:ring-2 focus:ring-amber-400 bg-white">
+                <p class="text-xs text-gray-500 mb-0">
+                    Học sinh phải làm đủ số câu này mới được tính điểm đầy đủ. Mặc định: 20 câu.
+                </p>
+            </div>
+
             <div class="pt-2 flex gap-3">
                 <button type="submit" class="btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl px-5 py-2.5 shadow-md">
                     <i class="fa-solid fa-floppy-disk me-1"></i> Lưu Thay Đổi

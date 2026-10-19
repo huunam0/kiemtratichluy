@@ -116,12 +116,26 @@
                         </tr>
                     <?php else: ?>
                         <?php foreach ($accumulated_scores as $t): ?>
-                            <?php $acc = $t['accumulated']; ?>
+                            <?php
+                                $acc       = $t['accumulated'];
+                                $minQ      = (int)($t['min_questions'] ?? 20);
+                                $attempted = $acc ? (int)$acc['total_attempted'] : 0;
+                                $lacking   = max(0, $minQ - $attempted);
+                            ?>
                             <tr>
                                 <td class="ps-6 font-bold text-gray-900 text-base"><?= esc($t['title']) ?></td>
                                 <td><span class="badge bg-indigo-50 text-indigo-700 font-semibold">Lớp <?= esc($t['class_name']) ?></span></td>
                                 <td class="font-semibold text-emerald-600"><?= $acc ? $acc['total_correct'] : 0 ?> câu đúng</td>
-                                <td class="font-semibold text-gray-700"><?= $acc ? $acc['total_attempted'] : 0 ?> câu làm</td>
+                                <td class="font-semibold text-gray-700">
+                                    <?= $attempted ?> / <?= $minQ ?> câu
+                                    <?php if ($lacking > 0): ?>
+                                        <div class="mt-1">
+                                            <span class="badge bg-orange-100 text-orange-700 font-semibold text-xs px-2 py-1 rounded-lg">
+                                                <i class="fa-solid fa-triangle-exclamation me-1"></i>Còn thiếu <?= $lacking ?> câu hỏi
+                                            </span>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
                                 <td>
                                     <?php if ($acc && $acc['total_attempted'] > 0): ?>
                                         <span class="text-xl font-black text-indigo-700 bg-indigo-50 px-3 py-1 rounded-xl border border-indigo-100">

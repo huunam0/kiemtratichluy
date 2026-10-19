@@ -19,6 +19,7 @@ use App\Models\FillBlankQuizModel;
 use App\Models\FillBlankSessionModel;
 use App\Models\FillBlankParticipantModel;
 use App\Models\FillBlankResultModel;
+use App\Libraries\SimpleXlsExport;
 
 class Teacher extends BaseController
 {
@@ -650,19 +651,21 @@ class Teacher extends BaseController
         $classes = $this->classModel->getClassesBySchool($schoolId);
 
         if ($this->request->getMethod() === 'POST') {
-            $classId     = (int)$this->request->getPost('class_id');
-            $title       = trim((string)$this->request->getPost('title'));
-            $description = trim((string)$this->request->getPost('description'));
-            $allowMock   = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
+            $classId      = (int)$this->request->getPost('class_id');
+            $title        = trim((string)$this->request->getPost('title'));
+            $description  = trim((string)$this->request->getPost('description'));
+            $allowMock    = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
+            $minQuestions = max(1, (int)($this->request->getPost('min_questions') ?: 20));
 
             if ($classId && !empty($title)) {
                 $this->testModel->insert([
-                    'class_id'    => $classId,
-                    'teacher_id'  => session()->get('user_id'),
-                    'title'       => $title,
-                    'description' => $description,
-                    'status'      => 'active',
-                    'allow_mock'  => $allowMock,
+                    'class_id'      => $classId,
+                    'teacher_id'    => session()->get('user_id'),
+                    'title'         => $title,
+                    'description'   => $description,
+                    'status'        => 'active',
+                    'allow_mock'    => $allowMock,
+                    'min_questions' => $minQuestions,
                 ]);
                 return redirect()->to(base_url('teacher/tests'))->with('success', 'Tạo bài kiểm tra tích luỹ thành công!');
             }
@@ -690,17 +693,19 @@ class Teacher extends BaseController
         $classes = $this->classModel->getClassesBySchool($schoolId);
 
         if ($this->request->getMethod() === 'POST') {
-            $classId     = (int)$this->request->getPost('class_id');
-            $title       = trim((string)$this->request->getPost('title'));
-            $description = trim((string)$this->request->getPost('description'));
-            $allowMock   = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
+            $classId      = (int)$this->request->getPost('class_id');
+            $title        = trim((string)$this->request->getPost('title'));
+            $description  = trim((string)$this->request->getPost('description'));
+            $allowMock    = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
+            $minQuestions = max(1, (int)($this->request->getPost('min_questions') ?: 20));
 
             if ($classId && !empty($title)) {
                 $this->testModel->update($id, [
-                    'class_id'    => $classId,
-                    'title'       => $title,
-                    'description' => $description,
-                    'allow_mock'  => $allowMock,
+                    'class_id'      => $classId,
+                    'title'         => $title,
+                    'description'   => $description,
+                    'allow_mock'    => $allowMock,
+                    'min_questions' => $minQuestions,
                 ]);
                 return redirect()->to(base_url('teacher/tests'))->with('success', 'Cập nhật bài kiểm tra tích luỹ thành công!');
             }
@@ -979,8 +984,9 @@ class Teacher extends BaseController
             return redirect()->to(base_url('teacher/tests'))->with('error', 'Bài kiểm tra không tồn tại.');
         }
 
-        $class = $this->classModel->find($test['class_id']);
+        $class    = $this->classModel->find($test['class_id']);
         $students = $this->userModel->getStudentsByClass($test['class_id']);
+        $minQ     = (int)($test['min_questions'] ?? 20);
 
         // Fetch accumulated score records for all enrolled students
         $scoresList = [];
@@ -992,6 +998,8 @@ class Teacher extends BaseController
             $st['total_attempted'] = $acc ? (int)$acc['total_attempted'] : 0;
             $st['accumulated_gpa'] = $acc ? (float)$acc['accumulated_gpa'] : 0.00;
             $st['has_score']       = $acc ? true : false;
+            // Count real test sessions for this student
+            $st['real_count']      = $this->participantModel->countRealTestsByStudent((int)$st['id'], $testId);
             $scoresList[] = $st;
         }
 
@@ -1004,10 +1012,175 @@ class Teacher extends BaseController
         });
 
         return view('teacher/accumulated_scores', [
-            'test'        => $test,
-            'class'       => $class,
-            'scores_list' => $scoresList,
+            'test'         => $test,
+            'class'        => $class,
+            'scores_list'  => $scoresList,
+            'min_questions'=> $minQ,
         ]);
+    }
+
+    // --------------------------------------------------------------------
+    // EXPORT ACCUMULATED SCORES TO EXCEL
+    // --------------------------------------------------------------------
+    public function exportAccumulatedScoresExcel(int $testId)
+    {
+        $test = $this->testModel->find($testId);
+        if (!$test) {
+            return redirect()->to(base_url('teacher/tests'))->with('error', 'Bài kiểm tra không tồn tại.');
+        }
+
+        $class    = $this->classModel->find($test['class_id']);
+        $students = $this->userModel->getStudentsByClass($test['class_id']);
+        $minQ     = (int)($test['min_questions'] ?? 20);
+
+        // ---- Build Sheet 1: Summary ----
+        $sheet1Headers = [
+            'STT',
+            'Họ Và Tên',
+            'Tên Đăng Nhập',
+            'Số Lượt Thi',
+            'Số Câu Đúng',
+            'Số Câu Đã Làm',
+            'Điểm Thang 10',
+            'Ghi Chú',
+        ];
+        // colTypes: i=integer, s=string, n=number(decimal)
+        $sheet1Types = ['i', 's', 's', 'i', 'i', 'i', 'n', 's'];
+
+        $sheet1Rows  = [];
+        $sheet2Rows  = [];
+        $scoresList  = [];
+
+        foreach ($students as $st) {
+            $acc = $this->accumulatedModel->where('student_id', $st['id'])
+                                          ->where('test_id', $testId)
+                                          ->first();
+            $st['total_correct']   = $acc ? (int)$acc['total_correct'] : 0;
+            $st['total_attempted'] = $acc ? (int)$acc['total_attempted'] : 0;
+            $st['accumulated_gpa'] = $acc ? (float)$acc['accumulated_gpa'] : 0.00;
+            $st['has_score']       = (bool)$acc;
+            $st['real_count']      = $this->participantModel->countRealTestsByStudent((int)$st['id'], $testId);
+            $scoresList[] = $st;
+        }
+
+        // Sort by gpa DESC, correct DESC
+        usort($scoresList, function ($a, $b) {
+            if ($a['accumulated_gpa'] == $b['accumulated_gpa']) {
+                return $b['total_correct'] <=> $a['total_correct'];
+            }
+            return $b['accumulated_gpa'] <=> $a['accumulated_gpa'];
+        });
+
+        foreach ($scoresList as $idx => $st) {
+            $note = '';
+            if ($st['total_attempted'] < $minQ) {
+                $lack = $minQ - $st['total_attempted'];
+                $note = "Còn thiếu {$lack} câu hỏi";
+            }
+            $gpa = ($st['total_attempted'] > 0)
+                ? round($st['total_correct'] / $st['total_attempted'] * 10, 2)
+                : 0.00;
+
+            $sheet1Rows[] = [
+                $idx + 1,
+                $st['full_name'],
+                $st['username'],
+                $st['real_count'],
+                $st['total_correct'],
+                $st['total_attempted'],
+                $gpa,
+                $note,
+            ];
+
+            // ---- Build Sheet 2 rows for this student ----
+            $history = $this->participantModel
+                ->select('session_participants.*, test_sessions.session_title, test_sessions.session_code, test_sessions.created_at as session_date')
+                ->join('test_sessions', 'test_sessions.id = session_participants.session_id')
+                ->where('test_sessions.test_id', $testId)
+                ->where('session_participants.student_id', $st['id'])
+                ->orderBy('session_participants.id', 'ASC')
+                ->findAll();
+
+            static $stt2 = 0;
+            foreach ($history as $h) {
+                $stt2++;
+                if ($h['approval_status'] === 'absent') {
+                    $status    = 'Đánh Vắng';
+                    $correct   = 0;
+                    $attempted = 3;
+                } elseif ($h['test_status'] === 'submitted') {
+                    $status    = 'Đã Nộp Bài';
+                    $correct   = (int)($h['score_correct'] ?? 0);
+                    $attempted = (int)($h['score_total'] ?? 0);
+                } else {
+                    $status    = 'Chưa Nộp';
+                    $correct   = 0;
+                    $attempted = 0;
+                }
+
+                $sheet2Rows[] = [
+                    $stt2,
+                    $st['full_name'],
+                    $st['username'],
+                    $h['session_title'] ?? '',
+                    $h['session_code']  ?? '',
+                    date('d/m/Y H:i', strtotime($h['joined_at'] ?? $h['session_date'])),
+                    $status,
+                    $correct,
+                    $attempted,
+                ];
+            }
+        }
+
+        $sheet2Headers = [
+            'STT',
+            'Họ Và Tên',
+            'Tên Đăng Nhập',
+            'Tên Lượt Thi',
+            'Mã Lượt Thi',
+            'Thời Gian Thi',
+            'Trạng Thái',
+            'Câu Đúng (Lượt)',
+            'Câu Đã Làm (Lượt)',
+        ];
+        $sheet2Types = ['i', 's', 's', 's', 's', 's', 's', 'i', 'i'];
+
+        $classLabel   = $class['name'] ?? 'Lop';
+        $testTitle    = $test['title'] ?? 'BaiKiemTra';
+        $cleanClass   = $this->stripVietnameseAccents($classLabel);
+        $cleanTitle   = $this->stripVietnameseAccents($testTitle);
+        $safeName     = preg_replace('/[^A-Za-z0-9]+/', '_', trim($cleanClass . '_' . $cleanTitle));
+        $safeName     = trim($safeName, '_');
+        $filename     = 'BangDiem_' . $safeName . '_' . date('Ymd') . '.xlsx';
+
+        $xls = new SimpleXlsExport();
+        $xls->addSheet('Bảng Điểm Chung', $sheet1Headers, $sheet1Rows, $sheet1Types);
+        $xls->addSheet('Chi Tiết Từng Lượt', $sheet2Headers, $sheet2Rows, $sheet2Types);
+        $xls->download($filename);
+    }
+
+    private function stripVietnameseAccents(string $str): string
+    {
+        $accents = [
+            'a' => ['à','á','ạ','ả','ã','â','ầ','ấ','ậ','ẩ','ẫ','ă','ằ','ắ','ặ','ẳ','ẵ'],
+            'e' => ['è','é','ẹ','ẻ','ẽ','ê','ề','ế','ệ','ể','ễ'],
+            'i' => ['ì','í','ị','ỉ','ĩ'],
+            'o' => ['ò','ó','ọ','ỏ','õ','ô','ồ','ố','ộ','ổ','ỗ','ơ','ờ','ớ','ợ','ở','ỡ'],
+            'u' => ['ù','ú','ụ','ủ','ũ','ư','ừ','ứ','ự','ử','ữ'],
+            'y' => ['ỳ','ý','ỵ','ỷ','ỹ'],
+            'd' => ['đ'],
+            'A' => ['À','Á','Ạ','Ả','Ã','Â','Ầ','Ấ','Ậ','Ẩ','Ẫ','Ă','Ằ','Ắ','Ặ','Ẳ','Ẵ'],
+            'E' => ['È','É','Ẹ','Ẻ','Ẽ','Ê','Ề','Ế','Ệ','Ể','Ễ'],
+            'I' => ['Ì','Í','Ị','Ỉ','Ĩ'],
+            'O' => ['Ò','Ó','Ọ','Ỏ','Õ','Ô','Ồ','Ố','Ộ','Ổ','Ỗ','Ơ','Ờ','Ớ','Ợ','Ở','Ỡ'],
+            'U' => ['Ù','Ú','Ụ','Ủ','Ũ','Ư','Ừ','Ứ','Ự','Ử','Ữ'],
+            'Y' => ['Ỳ','Ý','Ỵ','Ỷ','Ỹ'],
+            'D' => ['Đ']
+        ];
+        foreach ($accents as $nonAccent => $accentList) {
+            $str = str_replace($accentList, $nonAccent, $str);
+        }
+        return $str;
     }
 
     // --------------------------------------------------------------------
