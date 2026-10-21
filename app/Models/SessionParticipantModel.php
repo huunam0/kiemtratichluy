@@ -15,7 +15,8 @@ class SessionParticipantModel extends Model
     protected $allowedFields    = [
         'session_id', 'student_id', 'approval_status', 'test_status', 
         'score_correct', 'score_total', 'score_base10', 
-        'joined_at', 'approved_at', 'started_at', 'submitted_at'
+        'joined_at', 'approved_at', 'started_at', 'submitted_at',
+        'is_cancelled', 'cancelled_at', 'cancelled_reason'
     ];
 
     public function getParticipantsBySession(int $sessionId)
@@ -32,6 +33,7 @@ class SessionParticipantModel extends Model
         return $this->select('session_participants.*, users.full_name as student_name')
                     ->join('users', 'users.id = session_participants.student_id')
                     ->where('session_participants.session_id', $sessionId)
+                    ->where('session_participants.is_cancelled', 0)
                     ->orderBy('session_participants.score_base10', 'DESC')
                     ->orderBy('session_participants.score_correct', 'DESC')
                     ->orderBy('session_participants.submitted_at', 'ASC')
@@ -40,13 +42,15 @@ class SessionParticipantModel extends Model
 
     /**
      * Count real test sessions a student has participated in for a specific test.
-     * Counts sessions where student submitted or was marked absent.
+     * Counts sessions where student submitted or was marked absent, excluding cancelled ones.
      */
     public function countRealTestsByStudent(int $studentId, int $testId): int
     {
         return (int) $this->join('test_sessions', 'test_sessions.id = session_participants.session_id')
                           ->where('test_sessions.test_id', $testId)
                           ->where('session_participants.student_id', $studentId)
+                          ->where('test_sessions.status !=', 'cancelled')
+                          ->where('session_participants.is_cancelled', 0)
                           ->groupStart()
                               ->where('session_participants.test_status', 'submitted')
                               ->orWhere('session_participants.approval_status', 'absent')

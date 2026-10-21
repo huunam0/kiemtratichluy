@@ -78,6 +78,10 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->post('sessions/absent/(:num)/(:num)', 'Teacher::markAbsent/$1/$2');
     $routes->post('sessions/start/(:num)', 'Teacher::startSession/$1');
     $routes->post('sessions/end/(:num)', 'Teacher::endSession/$1');
+    $routes->post('sessions/cancel/(:num)', 'Teacher::cancelSession/$1');
+    $routes->post('sessions/restore/(:num)', 'Teacher::restoreSession/$1');
+    $routes->post('sessions/cancel-result/(:num)', 'Teacher::cancelParticipantResult/$1');
+    $routes->post('sessions/restore-result/(:num)', 'Teacher::restoreParticipantResult/$1');
     $routes->get('sessions/leaderboard/(:num)', 'Teacher::sessionLeaderboard/$1');
 
     // Markdown Practice Quizzes Management

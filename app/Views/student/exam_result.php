@@ -14,12 +14,33 @@
             <p class="text-gray-500 text-sm">Lượt thi: <span class="font-semibold text-gray-800"><?= esc($session['session_title']) ?></span></p>
         </div>
 
-        <!-- Session Result Box (Only show correct / total questions for single session) -->
-        <div class="py-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 max-w-sm mx-auto">
-            <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Kết Quả Lượt Thi</div>
-            <div class="text-4xl font-black text-emerald-600">
-                <i class="fa-solid fa-circle-check me-1"></i> <?= $participant['score_correct'] ?> / <?= $participant['score_total'] ?> <span class="text-2xl font-bold text-gray-700">câu đúng</span>
+        <?php 
+            $isCancelled = (($session['status'] ?? '') === 'cancelled' || (int)($participant['is_cancelled'] ?? 0) === 1);
+        ?>
+        <?php if ($isCancelled): ?>
+            <div class="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-sm">
+                <div class="font-bold flex items-center justify-center gap-1.5 text-base text-red-700">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    Kết quả lượt thi này đã bị giáo viên hủy bỏ
+                </div>
+                <div class="text-xs text-red-600 mt-1">
+                    Kết quả làm bài này <strong>không được tính vào điểm tích luỹ</strong> của bạn.
+                    <?php if (!empty($participant['cancelled_reason'])): ?>
+                        <br>Lý do: <em><?= esc($participant['cancelled_reason']) ?></em>
+                    <?php endif; ?>
+                </div>
             </div>
+        <?php endif; ?>
+
+        <!-- Session Result Box (Only show correct / total questions for single session) -->
+        <div class="py-6 <?= $isCancelled ? 'bg-red-50/50 border border-red-200' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100' ?> rounded-2xl max-w-sm mx-auto">
+            <div class="text-xs font-bold <?= $isCancelled ? 'text-red-500' : 'text-gray-500' ?> uppercase tracking-wider mb-2">Kết Quả Lượt Thi</div>
+            <div class="text-4xl font-black <?= $isCancelled ? 'line-through text-gray-400' : 'text-emerald-600' ?>">
+                <i class="fa-solid <?= $isCancelled ? 'fa-ban text-red-500' : 'fa-circle-check' ?> me-1"></i> <?= $participant['score_correct'] ?> / <?= $participant['score_total'] ?> <span class="text-2xl font-bold <?= $isCancelled ? 'text-gray-400' : 'text-gray-700' ?>">câu đúng</span>
+            </div>
+            <?php if ($isCancelled): ?>
+                <div class="text-xs font-bold text-red-600 uppercase mt-2">(Không tính vào điểm tích luỹ)</div>
+            <?php endif; ?>
         </div>
 
         <div class="pt-2">

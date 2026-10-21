@@ -960,6 +960,120 @@ class Teacher extends BaseController
         return $this->response->setJSON(['status' => 'success']);
     }
 
+    public function cancelSession(int $sessionId)
+    {
+        $session = $this->sessionModel->find($sessionId);
+        if (!$session) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON(['status' => 'error', 'message' => 'Lượt thi không tồn tại'], 404);
+            }
+            return redirect()->back()->with('error', 'Lượt thi không tồn tại.');
+        }
+
+        $this->sessionModel->update($sessionId, [
+            'status' => 'cancelled',
+        ]);
+
+        $this->accumulatedModel->recalculateSessionScores($sessionId);
+
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'status'  => 'success',
+                'message' => 'Đã huỷ bỏ lượt thi thành công. Toàn bộ kết quả trong lượt thi này sẽ không được tính vào điểm tích luỹ!'
+            ]);
+        }
+        return redirect()->back()->with('success', 'Đã huỷ bỏ lượt thi thành công. Toàn bộ kết quả trong lượt thi này sẽ không được tính vào điểm tích luỹ!');
+    }
+
+    public function restoreSession(int $sessionId)
+    {
+        $session = $this->sessionModel->find($sessionId);
+        if (!$session) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON(['status' => 'error', 'message' => 'Lượt thi không tồn tại'], 404);
+            }
+            return redirect()->back()->with('error', 'Lượt thi không tồn tại.');
+        }
+
+        $newStatus = !empty($session['ended_at']) ? 'completed' : (!empty($session['started_at']) ? 'in_progress' : 'waiting');
+
+        $this->sessionModel->update($sessionId, [
+            'status' => $newStatus,
+        ]);
+
+        $this->accumulatedModel->recalculateSessionScores($sessionId);
+
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'status'  => 'success',
+                'message' => 'Đã khôi phục lượt thi thành công. Điểm tích luỹ đã được tính toán lại!'
+            ]);
+        }
+        return redirect()->back()->with('success', 'Đã khôi phục lượt thi thành công. Điểm tích luỹ đã được tính toán lại!');
+    }
+
+    public function cancelParticipantResult(int $participantId)
+    {
+        $part = $this->participantModel->find($participantId);
+        if (!$part) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON(['status' => 'error', 'message' => 'Không tìm thấy kết quả làm bài'], 404);
+            }
+            return redirect()->back()->with('error', 'Không tìm thấy kết quả làm bài.');
+        }
+
+        $reason = $this->request->getPost('reason') ?: 'Giáo viên huỷ bỏ kết quả lượt thi';
+
+        $this->participantModel->update($participantId, [
+            'is_cancelled'     => 1,
+            'cancelled_at'     => date('Y-m-d H:i:s'),
+            'cancelled_reason' => $reason,
+        ]);
+
+        $session = $this->sessionModel->find($part['session_id']);
+        if ($session) {
+            $this->accumulatedModel->recalculateStudentScore((int)$part['student_id'], (int)$session['test_id']);
+        }
+
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'status'  => 'success',
+                'message' => 'Đã huỷ bỏ kết quả lượt thi của học sinh. Kết quả này sẽ không được tính vào điểm tích luỹ!'
+            ]);
+        }
+        return redirect()->back()->with('success', 'Đã huỷ bỏ kết quả lượt thi của học sinh. Kết quả này sẽ không được tính vào điểm tích luỹ!');
+    }
+
+    public function restoreParticipantResult(int $participantId)
+    {
+        $part = $this->participantModel->find($participantId);
+        if (!$part) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON(['status' => 'error', 'message' => 'Không tìm thấy kết quả làm bài'], 404);
+            }
+            return redirect()->back()->with('error', 'Không tìm thấy kết quả làm bài.');
+        }
+
+        $this->participantModel->update($participantId, [
+            'is_cancelled'     => 0,
+            'cancelled_at'     => null,
+            'cancelled_reason' => null,
+        ]);
+
+        $session = $this->sessionModel->find($part['session_id']);
+        if ($session) {
+            $this->accumulatedModel->recalculateStudentScore((int)$part['student_id'], (int)$session['test_id']);
+        }
+
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'status'  => 'success',
+                'message' => 'Đã khôi phục kết quả lượt thi của học sinh. Điểm tích luỹ đã được tính toán lại!'
+            ]);
+        }
+        return redirect()->back()->with('success', 'Đã khôi phục kết quả lượt thi của học sinh. Điểm tích luỹ đã được tính toán lại!');
+    }
+
     // Classroom Screen Projector Leaderboard
     public function sessionLeaderboard(int $sessionId)
     {
@@ -1094,7 +1208,7 @@ class Teacher extends BaseController
 
             // ---- Build Sheet 2 rows for this student ----
             $history = $this->participantModel
-                ->select('session_participants.*, test_sessions.session_title, test_sessions.session_code, test_sessions.created_at as session_date')
+                ->select('session_participants.*, test_sessions.session_title, test_sessions.session_code, test_sessions.status as session_status, test_sessions.created_at as session_date')
                 ->join('test_sessions', 'test_sessions.id = session_participants.session_id')
                 ->where('test_sessions.test_id', $testId)
                 ->where('session_participants.student_id', $st['id'])
@@ -1104,7 +1218,12 @@ class Teacher extends BaseController
             static $stt2 = 0;
             foreach ($history as $h) {
                 $stt2++;
-                if ($h['approval_status'] === 'absent') {
+                $isCancelled = (($h['session_status'] ?? '') === 'cancelled' || (int)($h['is_cancelled'] ?? 0) === 1);
+                if ($isCancelled) {
+                    $status    = 'Đã Hủy';
+                    $correct   = 0;
+                    $attempted = 0;
+                } elseif ($h['approval_status'] === 'absent') {
                     $status    = 'Đánh Vắng';
                     $correct   = 0;
                     $attempted = 3;
@@ -1264,7 +1383,7 @@ class Teacher extends BaseController
                                               ->first();
 
         // Get all real test session participation history for this student on this test
-        $history = $this->participantModel->select('session_participants.*, test_sessions.session_title, test_sessions.session_code, test_sessions.created_at as session_date')
+        $history = $this->participantModel->select('session_participants.*, test_sessions.session_title, test_sessions.session_code, test_sessions.status as session_status, test_sessions.created_at as session_date')
                                            ->join('test_sessions', 'test_sessions.id = session_participants.session_id')
                                            ->where('test_sessions.test_id', $testId)
                                            ->where('session_participants.student_id', $studentId)

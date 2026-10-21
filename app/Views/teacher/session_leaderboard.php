@@ -34,6 +34,14 @@
                 Bài kiểm tra: <span class="text-indigo-300 font-semibold"><?= esc($test['title']) ?></span> | 
                 Mã Lượt: <code class="bg-indigo-950 px-3 py-1 rounded text-yellow-300 font-mono font-bold"><?= esc($session['session_code']) ?></code>
             </p>
+
+            <?php if ($session['status'] === 'cancelled'): ?>
+                <div class="mt-4 bg-red-500/20 border border-red-500/50 rounded-2xl p-4 text-center text-red-200">
+                    <i class="fa-solid fa-ban text-red-400 me-2 text-xl"></i>
+                    <strong class="text-white text-lg">LƯỢT THI NÀY ĐÃ BỊ GIÁO VIÊN HỦY BỎ</strong>
+                    <p class="text-sm text-red-300 mt-1 mb-0">Tất cả kết quả trong lượt thi này không được tính vào điểm tích luỹ.</p>
+                </div>
+            <?php endif; ?>
         </div>
 
         <!-- Leaderboard Podium / Table -->

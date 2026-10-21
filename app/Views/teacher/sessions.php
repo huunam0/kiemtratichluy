@@ -80,6 +80,8 @@
                                             <span class="badge bg-amber-100 text-amber-800 font-semibold animate-pulse">Chờ học sinh vào</span>
                                         <?php elseif ($s['status'] === 'in_progress'): ?>
                                             <span class="badge bg-emerald-600 text-white font-bold">Đang làm bài</span>
+                                        <?php elseif ($s['status'] === 'cancelled'): ?>
+                                            <span class="badge bg-red-100 text-red-800 border border-red-200 font-bold"><i class="fa-solid fa-ban me-1"></i> Đã hủy</span>
                                         <?php else: ?>
                                             <span class="badge bg-gray-200 text-gray-700 font-medium">Đã kết thúc</span>
                                         <?php endif; ?>
@@ -88,9 +90,18 @@
                                         <a href="<?= base_url("teacher/sessions/control/{$s['id']}") ?>" class="btn btn-warning btn-sm font-bold rounded-lg px-2.5 py-1 me-1">
                                             <i class="fa-solid fa-gears me-1"></i> Điều Khiển
                                         </a>
-                                        <?php if ($s['status'] !== 'completed'): ?>
-                                            <button onclick="closeSession(<?= $s['id'] ?>)" class="btn btn-outline-danger btn-sm font-bold rounded-lg px-2.5 py-1 me-1">
+                                        <?php if ($s['status'] !== 'completed' && $s['status'] !== 'cancelled'): ?>
+                                            <button onclick="closeSession(<?= $s['id'] ?>)" class="btn btn-outline-secondary btn-sm font-bold rounded-lg px-2.5 py-1 me-1">
                                                 <i class="fa-solid fa-lock me-1"></i> Đóng
+                                            </button>
+                                        <?php endif; ?>
+                                        <?php if ($s['status'] === 'cancelled'): ?>
+                                            <button onclick="restoreSession(<?= $s['id'] ?>)" class="btn btn-outline-success btn-sm font-bold rounded-lg px-2.5 py-1 me-1" title="Khôi phục lượt thi">
+                                                <i class="fa-solid fa-rotate-left me-1"></i> Khôi Phục
+                                            </button>
+                                        <?php else: ?>
+                                            <button onclick="cancelSession(<?= $s['id'] ?>)" class="btn btn-outline-danger btn-sm font-bold rounded-lg px-2.5 py-1 me-1" title="Hủy lượt thi (kết quả không tính vào điểm tích luỹ)">
+                                                <i class="fa-solid fa-ban me-1"></i> Hủy
                                             </button>
                                         <?php endif; ?>
                                         <a href="<?= base_url("teacher/sessions/leaderboard/{$s['id']}") ?>" target="_blank" class="btn btn-indigo bg-indigo-600 hover:bg-indigo-700 text-white btn-sm rounded-lg font-bold px-2.5 py-1">
@@ -117,8 +128,45 @@ function closeSession(sessionId) {
 
     fetch('<?= base_url("teacher/sessions/end/") ?>' + sessionId, {
         method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
         body: formData
     }).then(() => location.reload());
+}
+
+function cancelSession(sessionId) {
+    if (!confirm('Bạn có chắc muốn HỦY BỎ lượt thi này? Tất cả kết quả của học sinh trong lượt thi sẽ KHÔNG được tính vào điểm tích luỹ.')) return;
+
+    const formData = new FormData();
+    formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+    fetch('<?= base_url("teacher/sessions/cancel/") ?>' + sessionId, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(result => {
+        alert(result.message);
+        location.reload();
+    });
+}
+
+function restoreSession(sessionId) {
+    if (!confirm('Bạn có chắc muốn KHÔI PHỤC lượt thi này? Tất cả kết quả hợp lệ sẽ được tính lại vào điểm tích luỹ.')) return;
+
+    const formData = new FormData();
+    formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+    fetch('<?= base_url("teacher/sessions/restore/") ?>' + sessionId, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(result => {
+        alert(result.message);
+        location.reload();
+    });
 }
 </script>
 <?= $this->endSection() ?>

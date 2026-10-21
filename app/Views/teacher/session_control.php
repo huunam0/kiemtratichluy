@@ -17,19 +17,35 @@
         </div>
 
         <div class="flex flex-wrap gap-2">
-            <!-- Start / Close session buttons -->
-            <button id="btnStartSession" onclick="startSession()" class="btn btn-emerald bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-4 py-2.5 shadow-md <?= $session['status'] !== 'waiting' ? 'hidden' : '' ?>">
-                <i class="fa-solid fa-play me-1"></i> BẮT ĐẦU CHO THI
-            </button>
+            <!-- Start / Close / Cancel session buttons -->
+            <?php if ($session['status'] === 'waiting'): ?>
+                <button id="btnStartSession" onclick="startSession()" class="btn btn-emerald bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-4 py-2.5 shadow-md">
+                    <i class="fa-solid fa-play me-1"></i> BẮT ĐẦU CHO THI
+                </button>
+            <?php endif; ?>
 
-            <?php if ($session['status'] !== 'completed'): ?>
+            <?php if ($session['status'] === 'in_progress'): ?>
                 <button id="btnEndSession" onclick="endSession()" class="btn btn-danger bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl px-4 py-2.5 shadow-md">
                     <i class="fa-solid fa-lock me-1"></i> ĐÓNG LƯỢT THI THẬT
                 </button>
-            <?php else: ?>
+            <?php elseif ($session['status'] === 'completed'): ?>
                 <span class="badge bg-gray-200 text-gray-800 font-bold text-sm px-3 py-2.5 rounded-xl flex items-center gap-1">
                     <i class="fa-solid fa-lock me-1"></i> LƯỢT THI ĐÃ ĐÓNG
                 </span>
+            <?php elseif ($session['status'] === 'cancelled'): ?>
+                <span class="badge bg-red-100 text-red-800 border border-red-300 font-bold text-sm px-3 py-2.5 rounded-xl flex items-center gap-1">
+                    <i class="fa-solid fa-ban me-1"></i> LƯỢT THI ĐÃ HỦY
+                </span>
+            <?php endif; ?>
+
+            <?php if ($session['status'] === 'cancelled'): ?>
+                <button onclick="restoreSession()" class="btn btn-outline-success font-bold rounded-xl px-4 py-2.5 shadow-sm">
+                    <i class="fa-solid fa-rotate-left me-1"></i> Khôi Phục Lượt Thi
+                </button>
+            <?php else: ?>
+                <button onclick="cancelSession()" class="btn btn-outline-danger font-bold rounded-xl px-3 py-2.5 shadow-sm" title="Hủy lượt thi (kết quả sẽ không tính vào điểm tích luỹ)">
+                    <i class="fa-solid fa-ban me-1"></i> Hủy Lượt Thi
+                </button>
             <?php endif; ?>
 
             <a href="<?= base_url("teacher/sessions/leaderboard/{$session['id']}") ?>" target="_blank" class="btn btn-indigo bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl px-4 py-2.5 shadow-md">
@@ -144,8 +160,15 @@ function renderParticipants(participants) {
             approvalBadge = '<span class="badge bg-red-600 text-white font-bold px-2.5 py-1"><i class="fa-solid fa-user-xmark me-1"></i> ĐÁNH VẮNG (+0/+3)</span>';
         }
 
+        const isCancelled = (p.is_cancelled == 1);
+
         let testStatusBadge = '';
-        if (p.test_status === 'waiting_approval') {
+        if (isCancelled) {
+            testStatusBadge = `<span class="badge bg-red-100 text-red-700 border border-red-200 font-bold px-2 py-1"><i class="fa-solid fa-ban me-1"></i> Đã hủy kết quả</span>`;
+            if (p.cancelled_reason) {
+                testStatusBadge += `<div class="text-[11px] text-red-500 italic mt-0.5">${p.cancelled_reason}</div>`;
+            }
+        } else if (p.test_status === 'waiting_approval') {
             testStatusBadge = '<span class="text-amber-600 font-medium">Chờ duyệt</span>';
         } else if (p.test_status === 'ready') {
             testStatusBadge = '<span class="text-indigo-600 font-medium">Sẵn sàng làm bài</span>';
@@ -158,12 +181,32 @@ function renderParticipants(participants) {
         }
 
         let scoreDisplay = '-';
-        if (p.score_total > 0 && p.test_status === 'submitted') {
+        if (isCancelled) {
+            if (p.score_total > 0) {
+                scoreDisplay = `<span class="line-through text-gray-400 font-semibold text-sm">${p.score_correct} / ${p.score_total}</span> <div class="text-[11px] text-red-600 font-bold mt-0.5">Không tính tích luỹ</div>`;
+            } else if (p.approval_status === 'absent') {
+                scoreDisplay = `<span class="line-through text-gray-400 text-xs">Vắng (+0/+3)</span> <div class="text-[11px] text-red-600 font-bold mt-0.5">Đã hủy phạt</div>`;
+            } else {
+                scoreDisplay = `<span class="text-red-500 text-xs font-semibold">Đã hủy</span>`;
+            }
+        } else if (p.score_total > 0 && p.test_status === 'submitted') {
             scoreDisplay = `<span class="text-base font-black text-emerald-600">${p.score_correct} / ${p.score_total} câu đúng</span>`;
         }
 
+        let actionButtons = '';
+        if (isCancelled) {
+            actionButtons = `<button onclick="restoreResult(${p.id})" class="btn btn-outline-success btn-sm rounded-lg text-xs font-bold"><i class="fa-solid fa-rotate-left me-1"></i> Khôi phục</button>`;
+        } else {
+            if (p.test_status === 'submitted' || p.approval_status === 'absent') {
+                actionButtons += `<button onclick="cancelResult(${p.id})" class="btn btn-outline-danger btn-sm rounded-lg text-xs font-bold me-1" title="Hủy kết quả"><i class="fa-solid fa-ban me-1"></i> Hủy kết quả</button>`;
+            }
+            if (p.approval_status !== 'absent') {
+                actionButtons += `<button onclick="markAbsent(${sessionId}, ${p.student_id})" class="btn btn-outline-danger btn-sm rounded-lg text-xs font-medium"><i class="fa-solid fa-user-slash me-1"></i> Đánh vắng</button>`;
+            }
+        }
+
         html += `
-            <tr>
+            <tr class="${isCancelled ? 'bg-red-50/40' : ''}">
                 <td class="ps-6">
                     <div class="font-bold text-gray-900">${p.student_name}</div>
                     <div class="text-xs text-gray-500">@${p.username}</div>
@@ -172,7 +215,7 @@ function renderParticipants(participants) {
                 <td>${testStatusBadge}</td>
                 <td>${scoreDisplay}</td>
                 <td class="text-end pe-6">
-                    ${p.approval_status !== 'absent' ? `<button onclick="markAbsent(${sessionId}, ${p.student_id})" class="btn btn-outline-danger btn-sm rounded-lg text-xs"><i class="fa-solid fa-user-slash me-1"></i> Đánh vắng</button>` : ''}
+                    ${actionButtons}
                 </td>
             </tr>
         `;
@@ -217,6 +260,80 @@ function markAbsent(sessId, studentId) {
     .then(result => {
         alert(result.message);
         fetchParticipants();
+    });
+}
+
+function cancelResult(participantId) {
+    const reason = prompt('Bạn có chắc muốn HỦY BỎ kết quả lượt thi của học sinh này? Kết quả sẽ KHÔNG được tính vào điểm tích luỹ.\n\nNhập lý do hủy (tùy chọn):', 'Lỗi thiết bị / Làm lại');
+    if (reason === null) return;
+
+    const formData = new FormData();
+    formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+    formData.append('reason', reason);
+
+    fetch('<?= base_url("teacher/sessions/cancel-result/") ?>' + participantId, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(result => {
+        alert(result.message);
+        fetchParticipants();
+    });
+}
+
+function restoreResult(participantId) {
+    if (!confirm('Bạn có chắc muốn KHÔI PHỤC kết quả lượt thi của học sinh này? Kết quả sẽ được tính lại vào điểm tích luỹ.')) return;
+
+    const formData = new FormData();
+    formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+    fetch('<?= base_url("teacher/sessions/restore-result/") ?>' + participantId, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(result => {
+        alert(result.message);
+        fetchParticipants();
+    });
+}
+
+function cancelSession() {
+    if (!confirm('Bạn có chắc muốn HỦY TOÀN BỘ lượt thi này? Tất cả kết quả của học sinh trong lượt thi sẽ KHÔNG được tính vào điểm tích luỹ.')) return;
+
+    const formData = new FormData();
+    formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+    fetch('<?= base_url("teacher/sessions/cancel/") ?>' + sessionId, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(result => {
+        alert(result.message);
+        location.reload();
+    });
+}
+
+function restoreSession() {
+    if (!confirm('Bạn có chắc muốn KHÔI PHỤC lượt thi này? Tất cả kết quả hợp lệ sẽ được tính lại vào điểm tích luỹ.')) return;
+
+    const formData = new FormData();
+    formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+    fetch('<?= base_url("teacher/sessions/restore/") ?>' + sessionId, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(result => {
+        alert(result.message);
+        location.reload();
     });
 }
 
