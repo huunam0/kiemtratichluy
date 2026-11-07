@@ -112,7 +112,7 @@ class QuestionModel extends Model
             $builder->whereNotIn('questions.id', $excludeIds);
         }
 
-        return $builder->groupBy('questions.id')->orderBy('questions.id', 'DESC')->findAll();
+        return $builder->orderBy('questions.id', 'DESC')->findAll();
     }
 
     public function canEditOrDelete(int $questionId, int $teacherId): bool

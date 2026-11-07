@@ -504,6 +504,8 @@ class Teacher extends BaseController
 
             $inserted = 0;
             $skipped  = 0;
+            $db = \Config\Database::connect();
+            $db->transStart();
             foreach ($parsed['questions'] as $q) {
                 // Skip duplicate: same content + topic already in DB
                 $existing = $this->questionModel
@@ -518,16 +520,17 @@ class Teacher extends BaseController
                 $this->questionModel->insert([
                     'creator_id'     => $teacherId,
                     'topic_id'       => $topicId,
-                    'content'        => esc($q['content']),
-                    'option_a'       => esc($q['option_a']),
-                    'option_b'       => esc($q['option_b']),
-                    'option_c'       => isset($q['option_c']) ? esc($q['option_c']) : null,
-                    'option_d'       => isset($q['option_d']) ? esc($q['option_d']) : null,
+                    'content'        => $q['content'],
+                    'option_a'       => $q['option_a'],
+                    'option_b'       => $q['option_b'],
+                    'option_c'       => isset($q['option_c']) ? $q['option_c'] : null,
+                    'option_d'       => isset($q['option_d']) ? $q['option_d'] : null,
                     'correct_option' => $q['answer'],
                     'explanation'    => '',
                 ]);
                 $inserted++;
             }
+            $db->transComplete();
 
             $parseErrors = count($parsed['errors']);
             $msg = "Import Aiken thành công: đã thêm {$inserted} câu hỏi";
@@ -786,6 +789,8 @@ class Teacher extends BaseController
         $questionIds = $this->request->getPost('question_ids');
         if (!empty($questionIds) && is_array($questionIds)) {
             $userId = session()->get('user_id');
+            $db = \Config\Database::connect();
+            $db->transStart();
             foreach ($questionIds as $qid) {
                 $existing = $this->poolModel->where('test_id', $testId)->where('question_id', $qid)->first();
                 if (!$existing) {
@@ -796,6 +801,7 @@ class Teacher extends BaseController
                     ]);
                 }
             }
+            $db->transComplete();
             return redirect()->to(base_url("teacher/tests/pool/{$testId}"))->with('success', 'Đã thêm các câu hỏi đã chọn vào Kho tích luỹ!');
         }
         
