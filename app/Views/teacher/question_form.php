@@ -52,7 +52,7 @@
                     Nội dung Câu hỏi (WYSIWYG Rich Text, Chèn Ảnh & Code Snippets) <span class="text-red-500">*</span>
                 </label>
                 <div id="editor-container" class="quill-editor-container border rounded-xl">
-                    <?= $question['content'] ?? '' ?>
+                    <?= format_question_content($question['content'] ?? '') ?>
                 </div>
                 <input type="hidden" name="content" id="hidden_content">
             </div>

@@ -77,7 +77,7 @@
                 </div>
 
                 <div class="text-gray-900 font-semibold text-base">
-                    <?= $sqa['content'] ?>
+                    <?= format_question_content($sqa['content']) ?>
                 </div>
 
                 <div class="space-y-2">
@@ -101,7 +101,7 @@
                             <span class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 <?= $badgeStyle ?>">
                                 <?= $opt['label'] ?>
                             </span>
-                            <div class="flex-1"><?= $opt['content'] ?></div>
+                            <div class="flex-1"><?= format_option_content($opt['content']) ?></div>
                             <?php if ($isCorrectOpt): ?>
                                 <span class="text-xs text-emerald-700 font-bold"><i class="fa-solid fa-circle-check"></i> Đáp án đúng</span>
                             <?php elseif ($isUserPick): ?>

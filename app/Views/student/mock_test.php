@@ -118,7 +118,8 @@
 
         function renderMockQuestion() {
             const q = mockData[mockIndex];
-            document.getElementById('mockContent').innerHTML = `<strong>Câu ${mockIndex + 1} / ${mockData.length}:</strong><br><br>${q.content}`;
+            const formattedContent = typeof formatQuestionContent === 'function' ? formatQuestionContent(q.content) : q.content;
+            document.getElementById('mockContent').innerHTML = `<strong>Câu ${mockIndex + 1} / ${mockData.length}:</strong><br><br>${formattedContent}`;
 
             const container = document.getElementById('mockOptions');
             container.innerHTML = '';
@@ -134,9 +135,11 @@
                     isSelected ? 'border-indigo-600 bg-indigo-50 text-indigo-950 font-bold' : 'border-gray-200 bg-white text-gray-800'
                 }`;
 
+                const formattedOpt = typeof formatOptionContent === 'function' ? formatOptionContent(opt.content) : opt.content;
+
                 btn.innerHTML = `
                     <span class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white ${isSelected ? 'bg-indigo-600' : 'bg-gray-500'}">${opt.label}</span>
-                    <div>${opt.content}</div>
+                    <div class="flex-1 overflow-x-auto break-words">${formattedOpt}</div>
                 `;
 
                 btn.onclick = () => {

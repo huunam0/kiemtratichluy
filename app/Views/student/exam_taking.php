@@ -128,7 +128,7 @@ function renderQuestion() {
     const q = questions[currentIndex];
 
     document.getElementById('questionOrderBadge').innerText = `Câu ${currentIndex + 1} / ${questions.length}`;
-    document.getElementById('questionContent').innerHTML = q.content;
+    document.getElementById('questionContent').innerHTML = typeof formatQuestionContent === 'function' ? formatQuestionContent(q.content) : q.content;
 
     const optionsContainer = document.getElementById('options-container');
     optionsContainer.innerHTML = '';
@@ -147,11 +147,13 @@ function renderQuestion() {
                 : 'border-gray-200 bg-white text-gray-800 active:bg-gray-100 hover:border-gray-300'
         }`;
 
+        const formattedOpt = typeof formatOptionContent === 'function' ? formatOptionContent(opt.content) : opt.content;
+
         btn.innerHTML = `
             <span class="badge-label w-11 h-11 rounded-xl flex items-center justify-center font-bold text-lg text-white transition-colors shrink-0 ${
                 isSelected ? 'bg-indigo-600 shadow-inner' : 'bg-gray-500'
             }">${opt.label}</span>
-            <div class="option-text flex-1 overflow-x-auto break-words">${opt.content}</div>
+            <div class="option-text flex-1 overflow-x-auto break-words">${formattedOpt}</div>
         `;
 
         btn.onclick = () => selectOption(q.id, opt.label);

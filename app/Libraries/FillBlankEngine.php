@@ -24,8 +24,14 @@ class FillBlankEngine
 
         $pattern = '~\[trong\](.*?)\[/trong\]~is';
         $finalHtml = preg_replace_callback($pattern, function ($matches) use (&$answers, &$blankIndex) {
-            $cleanText = preg_replace('/<\/?(b|i|u|span|code|strong|em|p|div|pre)\b[^>]*>/i', '', $matches[1]);
-            $rawAnswer = trim(html_entity_decode($cleanText, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            $inner = trim($matches[1]);
+            // If the answer itself is an HTML tag (e.g. <div>, <a>, <span>, <p>), keep it
+            if (preg_match('/^<\/?([a-z0-9_\-]+)\b[^>]*>$/i', $inner) || preg_match('/^<([a-z0-9_\-]+)>.*<\/\1>$/is', $inner)) {
+                $rawAnswer = html_entity_decode($inner, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            } else {
+                $cleanText = preg_replace('/<\/?(b|i|u|span|code|strong|em|p|div|pre)\b[^>]*>/i', '', $inner);
+                $rawAnswer = trim(html_entity_decode($cleanText, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            }
             $answers[$blankIndex] = $rawAnswer;
             $span = '<span class="chotrong" id="trong_' . $blankIndex . '" data-index="' . $blankIndex . '" title="Chỗ trống thứ ' . ($blankIndex + 1) . '">__________</span>';
             $blankIndex++;

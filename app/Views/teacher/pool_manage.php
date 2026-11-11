@@ -53,7 +53,7 @@
                                 <td class="ps-6 font-mono text-gray-400">#<?= $q['id'] ?></td>
                                 <td>
                                     <div class="font-medium text-gray-900 line-clamp-2 max-w-xl">
-                                        <?= strip_tags($q['content'], '<img><code><pre><b><i><strong>') ?>
+                                        <?= format_preview_content($q['content']) ?>
                                     </div>
                                 </td>
                                 <td><span class="badge bg-gray-100 text-gray-800 font-medium"><?= $optCount ?> đáp án</span></td>

@@ -435,16 +435,13 @@ class Teacher extends BaseController
         // Build Aiken text
         $lines = [];
         foreach ($questions as $q) {
-            // Strip HTML tags from content
-            $content = html_entity_decode(strip_tags($q['content']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $content = trim(preg_replace('/\s+/', ' ', $content));
-
+            // Clean HTML tags from content while preserving tag mentions (e.g. <a>, <div>)
+            $content = aiken_export_text($q['content']);
             $lines[] = $content;
 
             foreach (['A' => 'option_a', 'B' => 'option_b', 'C' => 'option_c', 'D' => 'option_d'] as $letter => $field) {
                 if (!empty($q[$field])) {
-                    $optText = html_entity_decode(strip_tags($q[$field]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    $optText = trim(preg_replace('/\s+/', ' ', $optText));
+                    $optText = aiken_export_text($q[$field]);
                     $lines[] = $letter . '. ' . $optText;
                 }
             }
@@ -632,12 +629,19 @@ class Teacher extends BaseController
                 continue;
             }
 
+            // Escape HTML entities for Aiken plain text so tags like <a>, <div> are preserved as text
+            $contentSafe = htmlspecialchars($content, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false);
+            $optA = htmlspecialchars($options['A'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false);
+            $optB = htmlspecialchars($options['B'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false);
+            $optC = isset($options['C']) ? htmlspecialchars($options['C'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false) : null;
+            $optD = isset($options['D']) ? htmlspecialchars($options['D'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false) : null;
+
             $questions[] = [
-                'content'  => $content,
-                'option_a' => $options['A'],
-                'option_b' => $options['B'],
-                'option_c' => $options['C'] ?? null,
-                'option_d' => $options['D'] ?? null,
+                'content'  => $contentSafe,
+                'option_a' => $optA,
+                'option_b' => $optB,
+                'option_c' => $optC,
+                'option_d' => $optD,
                 'answer'   => $answer,
             ];
         }

@@ -112,7 +112,51 @@
     <!-- Quill.js JS -->
     <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
     <!-- Highlight.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-    <script>hljs.highlightAll();</script>
+    <script>
+    window.formatOptionContent = function(content) {
+        if (!content) return '';
+        if (/^\s*<img\s+[^>]*src=[^>]*>\s*$/i.test(content)) {
+            return content;
+        }
+        const div = document.createElement('div');
+        div.textContent = content;
+        return div.innerHTML;
+    };
+
+    window.formatQuestionContent = function(content) {
+        if (!content) return '';
+        const hasStructural = /<\/?(p|br|h[1-6]|ul|ol|li|pre|code|blockquote|table|tbody|tr|td|th)\b/i.test(content);
+        if (!hasStructural) {
+            const div = document.createElement('div');
+            div.textContent = content;
+            return div.innerHTML.replace(/\n/g, '<br>');
+        }
+        const allowed = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'sub', 'sup', 'blockquote', 'pre', 'code', 'ol', 'ul', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table', 'tbody', 'thead', 'tr', 'td', 'th'];
+        let openRealLinks = 0;
+        return content.replace(/<(\/?[a-zA-Z0-9_\-]+)([^>]*)>/g, function(match, tagName, attrs) {
+            const lowerName = tagName.toLowerCase();
+            const isClosing = lowerName.startsWith('/');
+            const rawName = isClosing ? lowerName.substring(1) : lowerName;
+
+            if (allowed.includes(rawName)) return match;
+            if (rawName === 'span' && (isClosing || /\b(style|class)=/i.test(attrs))) return match;
+            if (rawName === 'img' && /\bsrc=/i.test(attrs)) return match;
+            if (rawName === 'a') {
+                if (!isClosing && /\bhref=/i.test(attrs)) {
+                    openRealLinks++;
+                    return match;
+                }
+                if (isClosing && openRealLinks > 0) {
+                    openRealLinks--;
+                    return match;
+                }
+            }
+
+            const d = document.createElement('div');
+            d.textContent = match;
+            return d.innerHTML;
+        });
+    };
+    </script>
 </body>
 </html>

@@ -201,7 +201,7 @@
                                     if (!empty($q['option_c'])) $optCount++;
                                     if (!empty($q['option_d'])) $optCount++;
                                     $isCreator = ((int)$q['creator_id'] === (int)$teacher_id);
-                                    $rawContent = strip_tags($q['content'], '<img><code><pre><b><i><strong>');
+                                    $rawContent = format_preview_content($q['content']);
                                     // Highlight keyword in content preview
                                     $kw = $filter['keyword'] ?? '';
                                     if (!empty($kw)) {
@@ -411,7 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         Câu ${index + 1} <span class="text-sm font-normal text-gray-400 ms-2">ID: #${q.id}</span>
                     </div>
                     <div class="text-gray-800 mb-4 content-render">
-                        ${q.content}
+                        ${typeof formatQuestionContent === 'function' ? formatQuestionContent(q.content) : q.content}
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 options-container">
                 `;
@@ -420,10 +420,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 for (const [key, val] of Object.entries(options)) {
                     if (val && val.trim() !== '') {
                         const isCorrect = (key === q.correct_option) ? 'true' : 'false';
+                        const formattedVal = typeof formatOptionContent === 'function' ? formatOptionContent(val) : val;
                         html += `
                         <div class="p-3 border border-gray-200 rounded-lg cursor-pointer option-item transition-colors duration-200 hover:bg-gray-50 flex items-start gap-3" data-correct="${isCorrect}">
                             <div class="font-bold option-letter w-6 shrink-0">${key}.</div>
-                            <div class="flex-grow content-render">${val}</div>
+                            <div class="flex-grow content-render">${formattedVal}</div>
                         </div>`;
                     }
                 }
