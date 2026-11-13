@@ -57,14 +57,10 @@
                                     <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">
                                         <i class="fa-solid fa-check-double me-1"></i> <?= $q['answer_count'] ?> đáp án
                                     </span>
-                                </td>
                                 <td class="text-gray-500 text-sm"><?= esc($q['created_at'] ?? '') ?></td>
                                 <td class="text-end pe-4">
-                                    <a href="<?= base_url('teacher/short-answer/questions/edit/' . $q['id']) ?>" class="btn btn-sm btn-outline-primary rounded-lg me-1">
-                                        <i class="fa-solid fa-pen-to-square me-1"></i> Sửa & Đáp án
-                                    </a>
-                                    <a href="<?= base_url('teacher/short-answer/questions/delete/' . $q['id']) ?>" class="btn btn-sm btn-outline-danger rounded-lg" onclick="return confirm('Bạn có chắc chắn muốn xóa câu hỏi này?');">
-                                        <i class="fa-solid fa-trash"></i>
+                                    <a href="<?= base_url('teacher/short-answer/questions/preview/' . $q['id']) ?>" class="btn btn-sm btn-outline-indigo rounded-xl font-semibold px-3 py-1.5">
+                                        <i class="fa-solid fa-eye me-1"></i> Xem thử
                                     </a>
                                 </td>
                             </tr>

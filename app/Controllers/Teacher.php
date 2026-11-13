@@ -2161,6 +2161,66 @@ class Teacher extends BaseController
         ]);
     }
 
+    public function previewShortAnswerQuestion(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $question  = $this->shortAnswerQuestionModel->find($id);
+
+        if (!$question || (int)$question['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/short-answer/questions'))->with('error', 'Không tìm thấy câu hỏi.');
+        }
+
+        $topicModel = new \App\Models\TopicModel();
+        $topic = $topicModel->find($question['topic_id']);
+        if ($topic) {
+            $subjectModel = new \App\Models\SubjectModel();
+            $subject = $subjectModel->find($topic['subject_id']);
+            $question['subject_name'] = $subject['name'] ?? 'Tin học';
+            $question['topic_name']   = $topic['name'] ?? '';
+            $question['grade_level']  = $topic['grade_level'] ?? 11;
+        }
+
+        $answers = $this->shortAnswerAcceptedModel->getAnswersByQuestion($id);
+
+        return view('teacher/short_answer/question_preview', [
+            'question' => $question,
+            'answers'  => $answers,
+        ]);
+    }
+
+    public function duplicateShortAnswerQuestion(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $question  = $this->shortAnswerQuestionModel->find($id);
+
+        if (!$question || (int)$question['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/short-answer/questions'))->with('error', 'Không tìm thấy câu hỏi để nhân bản.');
+        }
+
+        $newTitle = trim($question['title']) . ' (x2)';
+        $newId = $this->shortAnswerQuestionModel->insert([
+            'teacher_id'    => $teacherId,
+            'school_id'     => $question['school_id'],
+            'topic_id'      => $question['topic_id'],
+            'title'         => $newTitle,
+            'question_text' => $question['question_text'],
+        ]);
+
+        $answers = $this->shortAnswerAcceptedModel->getAnswersByQuestion($id);
+        foreach ($answers as $idx => $ans) {
+            $this->shortAnswerAcceptedModel->insert([
+                'question_id'     => $newId,
+                'answer_text'     => $ans['answer_text'],
+                'case_sensitive'  => $ans['case_sensitive'],
+                'space_sensitive' => $ans['space_sensitive'],
+                'sort_order'      => $ans['sort_order'] ?? $idx,
+            ]);
+        }
+
+        return redirect()->to(base_url("teacher/short-answer/questions/edit/{$newId}"))
+                         ->with('success', "Đã nhân bản câu hỏi thành công thành \"{$newTitle}\"! Bạn có thể chỉnh sửa ngay.");
+    }
+
     public function deleteShortAnswerQuestion(int $id)
     {
         $teacherId = session()->get('user_id');

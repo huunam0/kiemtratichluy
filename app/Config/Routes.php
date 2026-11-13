@@ -112,6 +112,8 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->get('short-answer/questions', 'Teacher::shortAnswerQuestions');
     $routes->match(['get', 'post'], 'short-answer/questions/create', 'Teacher::createShortAnswerQuestion');
     $routes->match(['get', 'post'], 'short-answer/questions/edit/(:num)', 'Teacher::editShortAnswerQuestion/$1');
+    $routes->get('short-answer/questions/preview/(:num)', 'Teacher::previewShortAnswerQuestion/$1');
+    $routes->match(['get', 'post'], 'short-answer/questions/duplicate/(:num)', 'Teacher::duplicateShortAnswerQuestion/$1');
     $routes->get('short-answer/questions/delete/(:num)', 'Teacher::deleteShortAnswerQuestion/$1');
     $routes->post('short-answer/questions/delete-answer/(:num)', 'Teacher::deleteShortAnswerAcceptedAnswer/$1');
 
