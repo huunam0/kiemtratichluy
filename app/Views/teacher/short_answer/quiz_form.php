@@ -118,7 +118,7 @@
                                         </div>
                                         <div class="d-flex items-center gap-1">
                                             <label class="text-xs fw-semibold text-gray-600">Điểm:</label>
-                                            <input type="number" step="0.25" min="0.1" name="question_points[<?= $q['id'] ?>]" class="form-control form-control-sm rounded-lg text-center font-bold" value="1.00" style="width: 80px;">
+                                            <input type="number" step="any" min="0" name="question_points[<?= $q['id'] ?>]" class="form-control form-control-sm rounded-lg text-center font-bold" value="1.00" style="width: 80px;">
                                         </div>
                                     </div>
                                 </div>
@@ -187,7 +187,7 @@
                                     <td class="text-center">
                                         <form method="POST" action="<?= base_url("teacher/short-answer/quizzes/update-points/{$quiz['id']}/{$qq['id']}") ?>" class="d-flex items-center justify-center gap-1">
                                             <?= csrf_field() ?>
-                                            <input type="number" step="0.25" min="0.1" name="points" value="<?= (float)$qq['points'] ?>" class="form-control form-control-sm text-center font-bold rounded-lg" style="width: 75px;">
+                                            <input type="number" step="any" min="0" name="points" value="<?= (float)$qq['points'] ?>" class="form-control form-control-sm text-center font-bold rounded-lg" style="width: 75px;">
                                             <button type="submit" class="btn btn-sm btn-outline-primary rounded-lg" title="Lưu điểm mới">
                                                 <i class="fa-solid fa-check"></i>
                                             </button>
@@ -229,7 +229,7 @@
                     </div>
                     <div class="col-6 col-md-2">
                         <div class="input-group">
-                            <input type="number" step="0.25" min="0.1" name="points" value="1.00" class="form-control rounded-xl font-bold text-center" placeholder="Điểm" required>
+                            <input type="number" step="any" min="0" name="points" value="1.00" class="form-control rounded-xl font-bold text-center" placeholder="Điểm" required>
                             <span class="input-group-text rounded-end-xl bg-gray-50 text-xs">đ</span>
                         </div>
                     </div>
