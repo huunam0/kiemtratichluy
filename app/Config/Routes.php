@@ -69,6 +69,7 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->get('tests/export-excel/(:num)', 'Teacher::exportAccumulatedScoresExcel/$1');
     $routes->post('tests/random-pick/(:num)', 'Teacher::randomPickStudents/$1');
     $routes->get('tests/student-breakdown/(:num)/(:num)', 'Teacher::studentScoreBreakdown/$1/$2');
+    $routes->post('classes/remove-student/(:num)/(:num)', 'Teacher::removeStudentFromClass/$1/$2');
 
     // Real-Time Sessions
     $routes->match(['get', 'post'], 'sessions', 'Teacher::sessions');

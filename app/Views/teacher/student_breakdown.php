@@ -29,10 +29,28 @@
             </p>
         </div>
 
-        <a href="<?= base_url("teacher/tests/accumulated-scores/{$test['id']}") ?>" class="btn btn-outline-secondary btn-sm rounded-xl">
-            <i class="fa-solid fa-arrow-left me-1"></i> Quay lại Bảng Điểm Tích Luỹ
-        </a>
+        <div class="flex items-center gap-2 flex-wrap">
+            <a href="<?= base_url("teacher/tests/accumulated-scores/{$test['id']}") ?>" class="btn btn-outline-secondary btn-sm rounded-xl">
+                <i class="fa-solid fa-arrow-left me-1"></i> Quay lại Bảng Điểm Tích Luỹ
+            </a>
+            <button type="button" onclick="confirmRemoveStudent()" class="btn btn-outline-danger btn-sm rounded-xl font-bold">
+                <i class="fa-solid fa-user-minus me-1"></i> Loại khỏi lớp
+            </button>
+        </div>
     </div>
+
+    <?php if (session()->getFlashdata('success')): ?>
+        <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-5 py-3 flex items-center gap-2 font-semibold text-sm">
+            <i class="fa-solid fa-circle-check text-emerald-600"></i>
+            <?= esc(session()->getFlashdata('success')) ?>
+        </div>
+    <?php endif; ?>
+    <?php if (session()->getFlashdata('error')): ?>
+        <div class="bg-red-50 border border-red-200 text-red-800 rounded-2xl px-5 py-3 flex items-center gap-2 font-semibold text-sm">
+            <i class="fa-solid fa-circle-exclamation text-red-600"></i>
+            <?= esc(session()->getFlashdata('error')) ?>
+        </div>
+    <?php endif; ?>
 
     <!-- Student Overall Accumulated Summary -->
     <div class="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 rounded-3xl p-6 text-white shadow-lg grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -204,6 +222,32 @@ function promptCancelResult(partId) {
 
     document.body.appendChild(form);
     form.submit();
+}
+</script>
+
+<!-- Hidden form for removing student from class -->
+<form id="removeStudentForm" method="POST"
+      action="<?= base_url("teacher/classes/remove-student/{$class['id']}/{$student['id']}") ?>"
+      class="hidden">
+    <?= csrf_field() ?>
+    <input type="hidden" name="return_url"
+           value="<?= base_url("teacher/tests/accumulated-scores/{$test['id']}") ?>">
+</form>
+
+<script>
+function confirmRemoveStudent() {
+    const studentName = <?= json_encode($student['full_name']) ?>;
+    const className   = <?= json_encode($class['name'] ?? '') ?>;
+
+    if (!confirm(
+        `⚠️ BẠN CÓ CHẮC MUỐN LOẠI HỌC SINH NÀY KHỎI LỚP?\n\n` +
+        `Học sinh: ${studentName}\n` +
+        `Lớp: ${className}\n\n` +
+        `Lưu ý: Thao tác này sẽ xóa học sinh ra khỏi danh sách lớp.\n` +
+        `Lịch sử điểm tích luỹ sẽ KHÔNG bị xóa.`
+    )) return;
+
+    document.getElementById('removeStudentForm').submit();
 }
 </script>
 <?= $this->endSection() ?>

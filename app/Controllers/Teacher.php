@@ -19,6 +19,7 @@ use App\Models\FillBlankQuizModel;
 use App\Models\FillBlankSessionModel;
 use App\Models\FillBlankParticipantModel;
 use App\Models\FillBlankResultModel;
+use App\Models\ClassStudentModel;
 use App\Libraries\SimpleXlsExport;
 
 class Teacher extends BaseController
@@ -40,6 +41,7 @@ class Teacher extends BaseController
     protected $fillBlankSessionModel;
     protected $fillBlankParticipantModel;
     protected $fillBlankResultModel;
+    protected $classStudentModel;
 
     public function __construct()
     {
@@ -60,6 +62,7 @@ class Teacher extends BaseController
         $this->fillBlankSessionModel     = new FillBlankSessionModel();
         $this->fillBlankParticipantModel = new FillBlankParticipantModel();
         $this->fillBlankResultModel      = new FillBlankResultModel();
+        $this->classStudentModel         = new ClassStudentModel();
     }
 
     public function dashboard()
@@ -1407,6 +1410,37 @@ class Teacher extends BaseController
             'accumulated' => $accumulated,
             'history'     => $history,
         ]);
+    }
+
+    // --------------------------------------------------------------------
+    // REMOVE STUDENT FROM CLASS
+    // --------------------------------------------------------------------
+    public function removeStudentFromClass(int $classId, int $studentId)
+    {
+        $teacherId = session()->get('user_id');
+
+        // Verify the class belongs to this teacher
+        $class = $this->classModel->find($classId);
+        if (!$class || $class['creator_teacher_id'] != $teacherId) {
+            return redirect()->to(base_url('teacher/tests'))
+                             ->with('error', 'Bạn không có quyền thực hiện thao tác này.');
+        }
+
+        $student = $this->userModel->find($studentId);
+        if (!$student) {
+            return redirect()->to(base_url('teacher/tests'))
+                             ->with('error', 'Không tìm thấy học sinh.');
+        }
+
+        // Delete from class_students
+        $this->classStudentModel->where('class_id', $classId)
+                                ->where('student_id', $studentId)
+                                ->delete();
+
+        // Redirect back with success flash
+        $returnUrl = $this->request->getPost('return_url') ?? base_url('teacher/tests');
+        return redirect()->to($returnUrl)
+                         ->with('success', "Đã loại học sinh \"{$student['full_name']}\" ra khỏi lớp \"{$class['name']}\" thành công.");
     }
 
     // --------------------------------------------------------------------
