@@ -2052,13 +2052,20 @@ class Teacher extends BaseController
                 return redirect()->back()->with('error', 'Vui lòng nhập ít nhất 1 đáp án đúng cho câu hỏi.')->withInput();
             }
 
+            $equivalentId = (int)$this->request->getPost('equivalent_id');
+
             $qId = $this->shortAnswerQuestionModel->insert([
                 'teacher_id'    => $teacherId,
                 'school_id'     => $schoolId,
                 'topic_id'      => $topicId,
                 'title'         => $title,
                 'question_text' => $questionText,
+                'equivalent_id' => $equivalentId > 0 ? $equivalentId : null,
             ]);
+
+            if ($equivalentId <= 0) {
+                $this->shortAnswerQuestionModel->update($qId, ['equivalent_id' => $qId]);
+            }
 
             foreach ($validAnswers as $i => $va) {
                 $this->shortAnswerAcceptedModel->insert([
@@ -2122,6 +2129,8 @@ class Teacher extends BaseController
                 $title        = trim((string)$this->request->getPost('title'));
                 $topicId      = (int)$this->request->getPost('topic_id');
                 $questionText = trim((string)$this->request->getPost('question_text'));
+                $equivInput   = $this->request->getPost('equivalent_id');
+                $equivalentId = ($equivInput !== null && $equivInput !== '' && (int)$equivInput > 0) ? (int)$equivInput : $id;
 
                 if (empty($title) || empty($questionText)) {
                     return redirect()->back()->with('error', 'Vui lòng nhập Tên và Nội dung câu hỏi.');
@@ -2131,6 +2140,7 @@ class Teacher extends BaseController
                     'title'         => $title,
                     'topic_id'      => $topicId > 0 ? $topicId : $question['topic_id'],
                     'question_text' => $questionText,
+                    'equivalent_id' => $equivalentId,
                 ]);
 
                 // Update existing answers if submitted
@@ -2182,9 +2192,18 @@ class Teacher extends BaseController
 
         $answers = $this->shortAnswerAcceptedModel->getAnswersByQuestion($id);
 
+        // Lấy danh sách các câu hỏi khác cùng nhóm tương đương (nếu có)
+        $equivId = !empty($question['equivalent_id']) ? (int)$question['equivalent_id'] : (int)$question['id'];
+        $equivalentQuestions = $this->shortAnswerQuestionModel
+                                    ->where('equivalent_id', $equivId)
+                                    ->where('id !=', $id)
+                                    ->where('teacher_id', $teacherId)
+                                    ->findAll();
+
         return view('teacher/short_answer/question_preview', [
-            'question' => $question,
-            'answers'  => $answers,
+            'question'            => $question,
+            'answers'             => $answers,
+            'equivalentQuestions' => $equivalentQuestions,
         ]);
     }
 
@@ -2197,13 +2216,16 @@ class Teacher extends BaseController
             return redirect()->to(base_url('teacher/short-answer/questions'))->with('error', 'Không tìm thấy câu hỏi để nhân bản.');
         }
 
+        $equivId = !empty($question['equivalent_id']) ? (int)$question['equivalent_id'] : (int)$question['id'];
         $newTitle = trim($question['title']) . ' (x2)';
+
         $newId = $this->shortAnswerQuestionModel->insert([
             'teacher_id'    => $teacherId,
             'school_id'     => $question['school_id'],
             'topic_id'      => $question['topic_id'],
             'title'         => $newTitle,
             'question_text' => $question['question_text'],
+            'equivalent_id' => $equivId,
         ]);
 
         $answers = $this->shortAnswerAcceptedModel->getAnswersByQuestion($id);
@@ -2218,7 +2240,7 @@ class Teacher extends BaseController
         }
 
         return redirect()->to(base_url("teacher/short-answer/questions/edit/{$newId}"))
-                         ->with('success', "Đã nhân bản câu hỏi thành công thành \"{$newTitle}\"! Bạn có thể chỉnh sửa ngay.");
+                         ->with('success', "Đã nhân bản câu hỏi thành công thành \"{$newTitle}\" (Cùng nhóm tương đương #{$equivId})! Bạn có thể chỉnh sửa ngay.");
     }
 
     public function deleteShortAnswerQuestion(int $id)

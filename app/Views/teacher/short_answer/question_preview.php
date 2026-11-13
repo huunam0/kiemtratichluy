@@ -7,6 +7,10 @@
         <div>
             <div class="d-flex items-center gap-2">
                 <span class="badge bg-indigo-100 text-indigo-800 rounded-pill px-3 py-1 font-mono text-xs font-bold">#<?= $question['id'] ?></span>
+                <?php $equivId = !empty($question['equivalent_id']) ? (int)$question['equivalent_id'] : (int)$question['id']; ?>
+                <span class="badge bg-purple-100 text-purple-800 rounded-pill px-3 py-1 text-xs font-bold" title="Mã nhóm câu hỏi tương đương">
+                    <i class="fa-solid fa-layer-group me-1"></i>Nhóm tương đương #<?= $equivId ?>
+                </span>
                 <h1 class="text-2xl font-bold text-gray-900 mb-0">Xem Thử Câu Hỏi</h1>
             </div>
             <p class="text-gray-500 text-sm mt-0.5">Xem trước giao diện câu hỏi, các đáp án đúng và thao tác nhanh.</p>
@@ -142,6 +146,57 @@
                 </div>
             <?php endforeach; ?>
         </div>
+    </div>
+
+    <!-- NHÓM CÂU HỎI TƯƠNG ĐƯƠNG -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+        <div class="d-flex flex-wrap items-center justify-between pb-3 border-bottom gap-2">
+            <div>
+                <h3 class="text-base font-bold text-gray-900 mb-0">
+                    <i class="fa-solid fa-layer-group text-purple-600 me-2"></i>Nhóm Câu Hỏi Tương Đương (Mã nhóm: #<?= $equivId ?>)
+                </h3>
+                <p class="text-xs text-gray-500 mt-0.5 mb-0">
+                    Khi đưa nhiều câu hỏi cùng nhóm vào một đề, hệ thống sẽ tự động bốc ngẫu nhiên <strong>duy nhất 1 câu</strong> trong nhóm này cho mỗi học sinh.
+                </p>
+            </div>
+            <a href="<?= base_url('teacher/short-answer/questions/duplicate/' . $question['id']) ?>" 
+               class="btn btn-sm btn-outline-secondary rounded-xl font-semibold"
+               onclick="return confirm('Bạn có muốn nhân bản câu hỏi này thành câu hỏi mới cùng nhóm tương đương?');">
+                <i class="fa-solid fa-clone text-purple-600 me-1"></i> Nhân bản thêm câu cùng nhóm
+            </a>
+        </div>
+
+        <?php if (empty($equivalentQuestions)): ?>
+            <div class="p-3 bg-purple-50/50 border border-purple-100 rounded-xl text-xs text-purple-800 d-flex items-center justify-between">
+                <div>
+                    <i class="fa-solid fa-circle-info me-1"></i> Hiện tại chưa có câu hỏi nào khác cùng nhóm <strong>#<?= $equivId ?></strong>.
+                </div>
+                <span class="text-gray-500">Mặc định câu hỏi này hoạt động độc lập.</span>
+            </div>
+        <?php else: ?>
+            <div class="space-y-2">
+                <div class="text-xs font-semibold text-gray-600 mb-1">Các câu hỏi khác thuộc cùng nhóm #<?= $equivId ?> (<?= count($equivalentQuestions) ?> câu):</div>
+                <?php foreach ($equivalentQuestions as $eqQ): ?>
+                    <div class="p-3 bg-gray-50 border border-gray-200 rounded-xl d-flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex-grow-1">
+                            <div class="font-bold text-gray-900 text-sm">
+                                <span class="font-mono text-xs text-purple-700 bg-purple-100 px-2 py-0.5 rounded border border-purple-200 me-1">#<?= $eqQ['id'] ?></span>
+                                <?= esc($eqQ['title']) ?>
+                            </div>
+                            <div class="text-xs text-gray-600 mt-1"><?= esc(mb_strimwidth($eqQ['question_text'], 0, 90, '...')) ?></div>
+                        </div>
+                        <div class="d-flex items-center gap-2">
+                            <a href="<?= base_url('teacher/short-answer/questions/preview/' . $eqQ['id']) ?>" class="btn btn-sm btn-outline-indigo rounded-lg text-xs font-semibold px-2.5 py-1">
+                                <i class="fa-solid fa-eye me-1"></i> Xem thử
+                            </a>
+                            <a href="<?= base_url('teacher/short-answer/questions/edit/' . $eqQ['id']) ?>" class="btn btn-sm btn-outline-secondary rounded-lg text-xs font-semibold px-2.5 py-1">
+                                <i class="fa-solid fa-pen me-1"></i> Sửa
+                            </a>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 

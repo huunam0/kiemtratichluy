@@ -17,9 +17,16 @@
         <form method="POST">
             <input type="hidden" name="action" value="update_main">
             <div class="row g-3">
-                <div class="col-12">
+                <div class="col-12 col-md-8">
                     <label class="form-label fw-semibold text-gray-700">Tên câu hỏi (để gợi nhớ & quản lý) <span class="text-danger">*</span></label>
                     <input type="text" name="title" class="form-control rounded-xl" value="<?= esc($question['title'] ?? old('title')) ?>" placeholder="VD: Phép cộng ba với năm, Tên thủ đô Việt Nam..." required>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold text-gray-700">
+                        <i class="fa-solid fa-layer-group text-purple-600 me-1"></i> Mã nhóm tương đương (equivalent_id)
+                    </label>
+                    <input type="number" name="equivalent_id" class="form-control rounded-xl" value="<?= esc($question['equivalent_id'] ?? old('equivalent_id')) ?>" placeholder="Để trống = nhận ID câu này">
+                    <div class="form-text text-xs text-gray-500">Các câu cùng mã nhóm sẽ chỉ chọn ngẫu nhiên 1 câu cho mỗi học sinh.</div>
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-semibold text-gray-700">Môn học <span class="text-danger">*</span></label>

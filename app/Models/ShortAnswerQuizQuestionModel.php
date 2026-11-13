@@ -22,7 +22,7 @@ class ShortAnswerQuizQuestionModel extends Model
      */
     public function getQuestionsWithContent(int $quizId): array
     {
-        return $this->select('short_answer_quiz_questions.*, short_answer_questions.title, short_answer_questions.question_text,
+        return $this->select('short_answer_quiz_questions.*, short_answer_questions.title, short_answer_questions.question_text, short_answer_questions.equivalent_id,
                              topics.name as topic_name, subjects.name as subject_name')
                     ->join('short_answer_questions', 'short_answer_questions.id = short_answer_quiz_questions.question_id')
                     ->join('topics', 'topics.id = short_answer_questions.topic_id', 'left')

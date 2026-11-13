@@ -44,7 +44,15 @@
                         <?php foreach ($questions as $q): ?>
                             <tr>
                                 <td class="ps-4 font-mono text-sm text-gray-500">#<?= $q['id'] ?></td>
-                                <td class="fw-bold text-gray-900"><?= esc($q['title']) ?></td>
+                                <td class="fw-bold text-gray-900">
+                                    <div><?= esc($q['title']) ?></div>
+                                    <?php $eqId = !empty($q['equivalent_id']) ? $q['equivalent_id'] : $q['id']; ?>
+                                    <div class="mt-1">
+                                        <span class="badge bg-purple-50 text-purple-700 border border-purple-200 text-xs font-normal" title="Mã nhóm câu hỏi tương đương #<?= $eqId ?>">
+                                            <i class="fa-solid fa-layer-group me-1"></i> Nhóm #<?= $eqId ?>
+                                        </span>
+                                    </div>
+                                </td>
                                 <td class="text-gray-700 text-sm max-w-xs truncate" title="<?= esc($q['question_text']) ?>">
                                     <?= esc(mb_strimwidth($q['question_text'], 0, 80, '...')) ?>
                                 </td>

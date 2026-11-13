@@ -96,6 +96,11 @@
                         <span class="text-xs text-gray-500">Tích chọn các câu hỏi và nhập số điểm cho mỗi câu</span>
                     </div>
 
+                    <div class="alert alert-info rounded-xl text-xs py-2.5 px-3 mb-3 d-flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-indigo-600 fa-lg"></i>
+                        <span><strong>Cơ chế nhóm câu hỏi tương đương:</strong> Nếu đề chứa nhiều câu hỏi có cùng mã nhóm tương đương, hệ thống sẽ <strong>tự động bốc ngẫu nhiên duy nhất 1 câu</strong> trong nhóm đó cho mỗi học sinh khi làm bài. Điểm bài thi của học sinh sẽ tính theo điểm các câu nhận được.</span>
+                    </div>
+
                     <?php if (empty($questions)): ?>
                         <div class="alert alert-warning rounded-xl">
                             <i class="fa-solid fa-circle-exclamation me-1"></i> Chưa có câu hỏi nào trong ngân hàng. Vui lòng tạo câu hỏi trước khi tạo đề!
@@ -110,9 +115,13 @@
                                             <label class="form-check-label text-sm text-gray-800" for="q_<?= $q['id'] ?>">
                                                 <div class="font-bold text-gray-900"><?= esc($q['title']) ?></div>
                                                 <div class="text-gray-600 text-xs mt-0.5"><?= esc(mb_strimwidth($q['question_text'], 0, 90, '...')) ?></div>
-                                                <div class="mt-1">
+                                                <div class="mt-1 d-flex flex-wrap items-center gap-1">
                                                     <span class="badge bg-gray-100 text-gray-600 text-xs"><?= esc($q['subject_name'] ?? 'Tin học') ?> - <?= esc($q['topic_name'] ?? '') ?></span>
                                                     <span class="badge bg-indigo-50 text-indigo-700 text-xs"><?= $q['answer_count'] ?> đáp án đúng</span>
+                                                    <?php $eqId = !empty($q['equivalent_id']) ? $q['equivalent_id'] : $q['id']; ?>
+                                                    <span class="badge bg-purple-50 text-purple-700 border border-purple-200 text-xs font-normal">
+                                                        <i class="fa-solid fa-layer-group me-1"></i> Nhóm #<?= $eqId ?>
+                                                    </span>
                                                 </div>
                                             </label>
                                         </div>
@@ -157,6 +166,11 @@
                 </div>
             </div>
 
+            <div class="alert alert-info rounded-xl text-xs py-2.5 px-3 d-flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-indigo-600 fa-lg"></i>
+                <span><strong>Cơ chế nhóm tương đương:</strong> Nếu trong đề có nhiều câu cùng mã nhóm, hệ thống sẽ bốc ngẫu nhiên <strong>duy nhất 1 câu</strong> cho mỗi học sinh khi làm bài. Điểm tối đa bài làm của học sinh sẽ được tính từ các câu học sinh nhận được.</span>
+            </div>
+
             <?php if (empty($quizQuestions)): ?>
                 <div class="alert alert-warning rounded-xl">
                     <i class="fa-solid fa-triangle-exclamation me-1"></i> Đề chưa có câu hỏi nào. Hãy thêm câu hỏi từ danh sách bên dưới!
@@ -180,6 +194,12 @@
                                     <td>
                                         <div class="font-bold text-gray-900"><?= esc($qq['title']) ?></div>
                                         <div class="text-xs text-gray-600 mt-0.5"><?= esc(mb_strimwidth($qq['question_text'], 0, 80, '...')) ?></div>
+                                        <?php $eqId = !empty($qq['equivalent_id']) ? $qq['equivalent_id'] : $qq['question_id']; ?>
+                                        <div class="mt-1">
+                                            <span class="badge bg-purple-50 text-purple-700 border border-purple-200 text-xs font-normal">
+                                                <i class="fa-solid fa-layer-group me-1"></i> Nhóm #<?= $eqId ?>
+                                            </span>
+                                        </div>
                                     </td>
                                     <td>
                                         <span class="badge bg-gray-100 text-gray-700 text-xs"><?= esc($qq['topic_name'] ?? '') ?></span>
@@ -222,7 +242,7 @@
                                     if (in_array($q['id'], $existingQIds)) continue;
                             ?>
                                 <option value="<?= $q['id'] ?>">
-                                    [#<?= $q['id'] ?>] <?= esc($q['title']) ?> (<?= esc($q['topic_name'] ?? 'Tin') ?>)
+                                    [#<?= $q['id'] ?> | Nhóm #<?= !empty($q['equivalent_id']) ? $q['equivalent_id'] : $q['id'] ?>] <?= esc($q['title']) ?> (<?= esc($q['topic_name'] ?? 'Tin') ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>

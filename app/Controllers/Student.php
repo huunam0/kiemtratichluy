@@ -901,16 +901,31 @@ class Student extends BaseController
             return redirect()->to(base_url("student/short-answer/result/{$existing['id']}"))->with('info', 'Bạn đã nộp bài trong lượt kiểm tra này.');
         }
 
-        $questions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quizId);
-        if (empty($questions)) {
+        $allQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quizId);
+        if (empty($allQuestions)) {
             return redirect()->to(base_url('student/dashboard'))->with('error', 'Đề kiểm tra chưa có câu hỏi nào.');
+        }
+
+        // Phân phối câu hỏi: nhóm câu hỏi tương đương chỉ lấy ngẫu nhiên 1 câu cho học sinh này
+        $sessionKey  = "sa_assigned_qids_{$openSession['id']}_{$studentId}";
+        $assignedIds = session()->get($sessionKey);
+
+        if (!empty($assignedIds) && is_array($assignedIds)) {
+            $questions = array_values(array_filter($allQuestions, function($q) use ($assignedIds) {
+                return in_array((int)$q['question_id'], $assignedIds);
+            }));
+        } else {
+            $questions = $this->pickEquivalentQuestions($allQuestions);
+            $assignedIds = array_column($questions, 'question_id');
+            session()->set($sessionKey, $assignedIds);
         }
 
         if ((int)$quiz['shuffle_questions'] === 1) {
             shuffle($questions);
         }
 
-        $totalPoints = $this->shortAnswerQuizQuestionModel->getMaxPoints($quizId);
+        // Điểm tối đa của đề được tính theo các câu hỏi mà học sinh nhận được
+        $totalPoints = array_sum(array_column($questions, 'points'));
 
         return view('student/short_answer/do_quiz', [
             'quiz'        => $quiz,
@@ -942,8 +957,20 @@ class Student extends BaseController
             return redirect()->to(base_url("student/short-answer/result/{$existing['id']}"))->with('info', 'Bạn đã nộp bài rồi.');
         }
 
-        $quizQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quiz['id']);
-        $userAnswers   = (array)($this->request->getPost('answers') ?? []);
+        $allQuizQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quiz['id']);
+        $userAnswers      = (array)($this->request->getPost('answers') ?? []);
+
+        // Lấy đúng danh sách câu hỏi đã giao cho học sinh
+        $sessionKey  = "sa_assigned_qids_{$sessionId}_{$studentId}";
+        $assignedIds = session()->get($sessionKey) ?: array_map('intval', array_keys($userAnswers));
+
+        $quizQuestions = array_values(array_filter($allQuizQuestions, function($qq) use ($assignedIds) {
+            return in_array((int)$qq['question_id'], $assignedIds);
+        }));
+
+        if (empty($quizQuestions)) {
+            $quizQuestions = $allQuizQuestions;
+        }
 
         // Lấy danh sách đáp án được chấp nhận cho từng câu
         $acceptedAnswersMap = [];
@@ -961,7 +988,7 @@ class Student extends BaseController
             'is_mock'          => 0,
             'student_answers'  => json_encode($grade['results']),
             'raw_score'        => $grade['raw_score'],
-            'final_score'      => $grade['raw_score'], // Sẽ cập nhật điểm trừ nộp chậm khi đóng bài hoặc tính điểm
+            'final_score'      => $grade['raw_score'],
             'penalty_deducted' => 0.00,
             'submitted_at'     => date('Y-m-d H:i:s'),
         ]);
@@ -979,8 +1006,16 @@ class Student extends BaseController
         }
 
         $quiz = $this->shortAnswerQuizModel->find($submission['quiz_id']);
-        $totalPoints = $this->shortAnswerQuizQuestionModel->getMaxPoints((int)$submission['quiz_id']);
         $questionResults = json_decode($submission['student_answers'] ?? '[]', true) ?: [];
+
+        // Tính tổng điểm max của bài làm từ kết quả các câu đã làm
+        $totalPoints = 0.0;
+        foreach ($questionResults as $qr) {
+            $totalPoints += (float)($qr['max_points'] ?? 0);
+        }
+        if ($totalPoints <= 0) {
+            $totalPoints = $this->shortAnswerQuizQuestionModel->getMaxPoints((int)$submission['quiz_id']);
+        }
 
         $quizQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent((int)$submission['quiz_id']);
         $questionInfoMap = [];
@@ -1006,16 +1041,20 @@ class Student extends BaseController
             return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không cho phép thi thử.');
         }
 
-        $questions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quizId);
-        if (empty($questions)) {
+        $allQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quizId);
+        if (empty($allQuestions)) {
             return redirect()->to(base_url('student/dashboard'))->with('error', 'Đề kiểm tra chưa có câu hỏi nào.');
         }
+
+        // Thi thử: bốc ngẫu nhiên 1 câu cho mỗi nhóm tương đương
+        $questions = $this->pickEquivalentQuestions($allQuestions);
+        session()->set("sa_mock_assigned_qids_{$quizId}_{$studentId}", array_column($questions, 'question_id'));
 
         if ((int)$quiz['shuffle_questions'] === 1) {
             shuffle($questions);
         }
 
-        $totalPoints = $this->shortAnswerQuizQuestionModel->getMaxPoints($quizId);
+        $totalPoints = array_sum(array_column($questions, 'points'));
 
         return view('student/short_answer/do_quiz', [
             'quiz'        => $quiz,
@@ -1036,8 +1075,19 @@ class Student extends BaseController
             return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không tồn tại.');
         }
 
-        $quizQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quiz['id']);
-        $userAnswers   = (array)($this->request->getPost('answers') ?? []);
+        $allQuizQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quiz['id']);
+        $userAnswers      = (array)($this->request->getPost('answers') ?? []);
+
+        $sessionKey  = "sa_mock_assigned_qids_{$quizId}_{$studentId}";
+        $assignedIds = session()->get($sessionKey) ?: array_map('intval', array_keys($userAnswers));
+
+        $quizQuestions = array_values(array_filter($allQuizQuestions, function($qq) use ($assignedIds) {
+            return in_array((int)$qq['question_id'], $assignedIds);
+        }));
+
+        if (empty($quizQuestions)) {
+            $quizQuestions = $allQuizQuestions;
+        }
 
         $acceptedAnswersMap = [];
         foreach ($quizQuestions as $qq) {
@@ -1060,5 +1110,25 @@ class Student extends BaseController
         ]);
 
         return redirect()->to(base_url("student/short-answer/result/{$subId}"))->with('success', 'Nộp bài thi thử thành công!');
+    }
+
+    /**
+     * Lọc danh sách câu hỏi: Trong các câu cùng nhóm tương đương (equivalent_id), chỉ chọn ngẫu nhiên 1 câu.
+     */
+    private function pickEquivalentQuestions(array $allQuestions): array
+    {
+        $grouped = [];
+        foreach ($allQuestions as $q) {
+            $equivKey = !empty($q['equivalent_id']) ? (int)$q['equivalent_id'] : ('q_' . $q['question_id']);
+            $grouped[$equivKey][] = $q;
+        }
+
+        $selected = [];
+        foreach ($grouped as $qList) {
+            // Chọn ngẫu nhiên 1 câu trong nhóm tương đương này
+            $selected[] = $qList[array_rand($qList)];
+        }
+
+        return $selected;
     }
 }
