@@ -256,6 +256,83 @@
         </div>
     </div>
 
+    <!-- Short Answer Quizzes (Trả lời ngắn) -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <h3 class="font-bold text-gray-900 text-lg flex items-center gap-2">
+                <i class="fa-solid fa-spell-check text-blue-600"></i>
+                Bài Kiểm Tra Dạng Trả Lời Ngắn
+            </h3>
+        </div>
+        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <?php if (empty($short_answer_quizzes)): ?>
+                <div class="col-span-2 text-center py-6 text-gray-400">
+                    Chưa có bài kiểm tra trả lời ngắn nào được giao cho lớp của bạn.
+                </div>
+            <?php else: ?>
+                <?php foreach ($short_answer_quizzes as $saq): ?>
+                    <div class="border <?= (int)$saq['is_open'] === 1 ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200' ?> rounded-2xl p-4 hover:shadow-md transition flex flex-col justify-between space-y-3">
+                        <div>
+                            <div class="d-flex items-center justify-between mb-1">
+                                <span class="badge bg-blue-100 text-blue-800 font-semibold px-2.5 py-1 rounded-lg text-xs">
+                                    <i class="fa-solid fa-users me-1"></i><?= esc($saq['class_name']) ?> - <?= (int)$saq['time_limit'] ?> phút
+                                </span>
+                                <?php if ((int)$saq['is_open'] === 1): ?>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 text-xs font-bold rounded-pill animate-pulse">
+                                        <i class="fa-solid fa-door-open me-1"></i> ĐANG MỞ THI
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge bg-gray-100 text-gray-500 px-2 py-0.5 text-xs rounded-pill">
+                                        <i class="fa-solid fa-lock me-1"></i> Đang đóng
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                            <h4 class="font-bold text-gray-900 text-base mb-1"><?= esc($saq['title']) ?></h4>
+                            <div class="text-xs text-gray-500">
+                                GV: <?= esc($saq['teacher_name'] ?? 'Giáo viên') ?> | 
+                                <?= (int)$saq['question_count'] ?> câu (<?= number_format((float)$saq['total_points'], 2) ?>đ)
+                                <?php if ((float)$saq['penalty_coefficient'] > 0): ?>
+                                    | <span class="text-amber-700 font-semibold">Phạt chậm: -<?= (float)$saq['penalty_coefficient'] ?>đ/bạn</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-t border-gray-100 gap-2">
+                            <div>
+                                <?php if ((int)($saq['allow_mock'] ?? 1) === 1): ?>
+                                    <a href="<?= base_url("student/short-answer/mock/{$saq['id']}") ?>" class="btn btn-outline-teal btn-sm rounded-xl px-2.5 py-1.5 font-semibold text-xs border border-teal-600 text-teal-700 hover:bg-teal-600 hover:text-white no-underline">
+                                        <i class="fa-solid fa-gamepad me-1"></i> Làm Thử
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+
+                            <div>
+                                <?php if ((int)$saq['is_open'] === 1): ?>
+                                    <?php if (!empty($saq['has_submitted'])): ?>
+                                        <div class="text-end">
+                                            <span class="badge bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 text-xs block mb-1">
+                                                <i class="fa-solid fa-circle-check me-1"></i> Đã nộp (<?= number_format((float)$saq['latest_submission']['final_score'], 1) ?>đ)
+                                            </span>
+                                            <a href="<?= base_url("student/short-answer/result/{$saq['latest_submission']['id']}") ?>" class="btn btn-sm btn-outline-emerald border-emerald-600 text-emerald-700 font-bold rounded-xl px-2.5 py-1 no-underline text-xs">
+                                                Xem Kết Quả
+                                            </a>
+                                        </div>
+                                    <?php else: ?>
+                                        <a href="<?= base_url("student/short-answer/exam/{$saq['id']}") ?>" class="btn bg-blue-600 hover:bg-blue-700 text-white font-bold btn-sm rounded-xl px-4 py-2 shadow-md no-underline">
+                                            <i class="fa-solid fa-play me-1"></i> Vào Làm Bài Ngay
+                                        </a>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="text-xs text-gray-400">Chờ giáo viên mở bài</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <!-- Markdown Practice Quizzes Available -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">

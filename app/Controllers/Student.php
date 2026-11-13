@@ -20,6 +20,12 @@ use App\Models\FillBlankSessionModel;
 use App\Models\FillBlankParticipantModel;
 use App\Models\FillBlankResultModel;
 use App\Libraries\FillBlankEngine;
+use App\Models\ShortAnswerQuizModel;
+use App\Models\ShortAnswerQuizQuestionModel;
+use App\Models\ShortAnswerAcceptedAnswerModel;
+use App\Models\ShortAnswerSessionModel;
+use App\Models\ShortAnswerSubmissionModel;
+use App\Libraries\ShortAnswerEngine;
 
 class Student extends BaseController
 {
@@ -41,6 +47,12 @@ class Student extends BaseController
     protected $fillBlankParticipantModel;
     protected $fillBlankResultModel;
     protected $fillBlankEngine;
+    protected $shortAnswerQuizModel;
+    protected $shortAnswerQuizQuestionModel;
+    protected $shortAnswerAcceptedModel;
+    protected $shortAnswerSessionModel;
+    protected $shortAnswerSubmissionModel;
+    protected $shortAnswerEngine;
 
     public function __construct()
     {
@@ -63,6 +75,13 @@ class Student extends BaseController
         $this->fillBlankParticipantModel = new FillBlankParticipantModel();
         $this->fillBlankResultModel      = new FillBlankResultModel();
         $this->fillBlankEngine           = new FillBlankEngine();
+
+        $this->shortAnswerQuizModel         = new ShortAnswerQuizModel();
+        $this->shortAnswerQuizQuestionModel = new ShortAnswerQuizQuestionModel();
+        $this->shortAnswerAcceptedModel     = new ShortAnswerAcceptedAnswerModel();
+        $this->shortAnswerSessionModel      = new ShortAnswerSessionModel();
+        $this->shortAnswerSubmissionModel   = new ShortAnswerSubmissionModel();
+        $this->shortAnswerEngine            = new ShortAnswerEngine();
     }
 
     public function dashboard()
@@ -132,6 +151,36 @@ class Student extends BaseController
             $fillBlankActiveSessions = array_merge($fillBlankActiveSessions, $fbSessList);
         }
 
+        // Fetch Short Answer Quizzes for Student's classes
+        $shortAnswerQuizzes = [];
+        foreach ($classes as $cls) {
+            $saList = $this->shortAnswerQuizModel->select('short_answer_quizzes.*, users.full_name as teacher_name')
+                                                ->join('users', 'users.id = short_answer_quizzes.teacher_id', 'left')
+                                                ->where('short_answer_quizzes.class_id', $cls['id'])
+                                                ->findAll();
+            foreach ($saList as &$sa) {
+                $sa['class_name']     = $cls['name'];
+                $sa['total_points']   = $this->shortAnswerQuizQuestionModel->getMaxPoints((int)$sa['id']);
+                $sa['question_count'] = $this->shortAnswerQuizQuestionModel->where('quiz_id', $sa['id'])->countAllResults();
+                
+                // Check if current open session has been submitted by student
+                $sa['has_submitted']     = false;
+                $sa['latest_submission'] = null;
+                if ((int)$sa['is_open'] === 1) {
+                    $openSess = $this->shortAnswerSessionModel->getLatestOpenSession((int)$sa['id']);
+                    if ($openSess) {
+                        $sub = $this->shortAnswerSubmissionModel->getBySessionAndStudent((int)$openSess['id'], $studentId);
+                        if ($sub) {
+                            $sa['has_submitted']     = true;
+                            $sa['latest_submission'] = $sub;
+                        }
+                    }
+                }
+                $shortAnswerQuizzes[] = $sa;
+            }
+            unset($sa);
+        }
+
         return view('student/dashboard', [
             'classes'                   => $classes,
             'active_sessions'           => $activeSessions,
@@ -139,6 +188,7 @@ class Student extends BaseController
             'practice_quizzes'          => $practiceQuizzes,
             'fill_blank_quizzes'        => $fillBlankQuizzes,
             'fill_blank_active_sessions'=> $fillBlankActiveSessions,
+            'short_answer_quizzes'      => $shortAnswerQuizzes,
         ]);
     }
 
@@ -813,5 +863,202 @@ class Student extends BaseController
             'total_blanks'  => $totalBlanks,
             'score_base10'  => $scoreBase10,
         ]);
+    }
+
+    // =========================================================================
+    // HỌC SINH: LÀM BÀI TRẢ LỜI NGẮN (SHORT ANSWER)
+    // =========================================================================
+
+    public function shortAnswerExam(int $quizId)
+    {
+        $studentId = session()->get('user_id');
+        $quiz = $this->shortAnswerQuizModel->find($quizId);
+
+        if (!$quiz) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không tồn tại.');
+        }
+
+        // Kiểm tra học sinh có thuộc lớp được giao không
+        if (!empty($quiz['class_id'])) {
+            $inClass = $this->classStudentModel->where('student_id', $studentId)->where('class_id', $quiz['class_id'])->first();
+            if (!$inClass) {
+                return redirect()->to(base_url('student/dashboard'))->with('error', 'Bạn không thuộc lớp được giao bài kiểm tra này.');
+            }
+        }
+
+        if ((int)$quiz['is_open'] !== 1) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra hiện đang đóng. Vui lòng chờ giáo viên mở bài.');
+        }
+
+        $openSession = $this->shortAnswerSessionModel->getLatestOpenSession($quizId);
+        if (!$openSession) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Không tìm thấy phiên làm bài đang mở.');
+        }
+
+        // Kiểm tra học sinh đã nộp bài trong session này chưa
+        $existing = $this->shortAnswerSubmissionModel->getBySessionAndStudent((int)$openSession['id'], $studentId);
+        if ($existing) {
+            return redirect()->to(base_url("student/short-answer/result/{$existing['id']}"))->with('info', 'Bạn đã nộp bài trong lượt kiểm tra này.');
+        }
+
+        $questions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quizId);
+        if (empty($questions)) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Đề kiểm tra chưa có câu hỏi nào.');
+        }
+
+        if ((int)$quiz['shuffle_questions'] === 1) {
+            shuffle($questions);
+        }
+
+        $totalPoints = $this->shortAnswerQuizQuestionModel->getMaxPoints($quizId);
+
+        return view('student/short_answer/do_quiz', [
+            'quiz'        => $quiz,
+            'session'     => $openSession,
+            'questions'   => $questions,
+            'is_mock'     => false,
+            'totalPoints' => $totalPoints,
+            'timeLimit'   => (int)$quiz['time_limit'],
+        ]);
+    }
+
+    public function submitShortAnswerExam(int $sessionId)
+    {
+        $studentId = session()->get('user_id');
+        $session   = $this->shortAnswerSessionModel->find($sessionId);
+
+        if (!$session) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Phiên kiểm tra không tồn tại.');
+        }
+
+        $quiz = $this->shortAnswerQuizModel->find($session['quiz_id']);
+        if (!$quiz) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không tồn tại.');
+        }
+
+        // Kiểm tra đã nộp chưa
+        $existing = $this->shortAnswerSubmissionModel->getBySessionAndStudent($sessionId, $studentId);
+        if ($existing) {
+            return redirect()->to(base_url("student/short-answer/result/{$existing['id']}"))->with('info', 'Bạn đã nộp bài rồi.');
+        }
+
+        $quizQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quiz['id']);
+        $userAnswers   = (array)($this->request->getPost('answers') ?? []);
+
+        // Lấy danh sách đáp án được chấp nhận cho từng câu
+        $acceptedAnswersMap = [];
+        foreach ($quizQuestions as $qq) {
+            $qId = (int)$qq['question_id'];
+            $acceptedAnswersMap[$qId] = $this->shortAnswerAcceptedModel->getAnswersByQuestion($qId);
+        }
+
+        $grade = $this->shortAnswerEngine->gradeSubmission($quizQuestions, $acceptedAnswersMap, $userAnswers);
+
+        $subId = $this->shortAnswerSubmissionModel->insert([
+            'session_id'       => $sessionId,
+            'quiz_id'          => $quiz['id'],
+            'student_id'       => $studentId,
+            'is_mock'          => 0,
+            'student_answers'  => json_encode($grade['results']),
+            'raw_score'        => $grade['raw_score'],
+            'final_score'      => $grade['raw_score'], // Sẽ cập nhật điểm trừ nộp chậm khi đóng bài hoặc tính điểm
+            'penalty_deducted' => 0.00,
+            'submitted_at'     => date('Y-m-d H:i:s'),
+        ]);
+
+        return redirect()->to(base_url("student/short-answer/result/{$subId}"))->with('success', 'Nộp bài kiểm tra thành công!');
+    }
+
+    public function shortAnswerResult(int $submissionId)
+    {
+        $studentId  = session()->get('user_id');
+        $submission = $this->shortAnswerSubmissionModel->find($submissionId);
+
+        if (!$submission || (int)$submission['student_id'] !== $studentId) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Không tìm thấy kết quả làm bài.');
+        }
+
+        $quiz = $this->shortAnswerQuizModel->find($submission['quiz_id']);
+        $totalPoints = $this->shortAnswerQuizQuestionModel->getMaxPoints((int)$submission['quiz_id']);
+        $questionResults = json_decode($submission['student_answers'] ?? '[]', true) ?: [];
+
+        $quizQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent((int)$submission['quiz_id']);
+        $questionInfoMap = [];
+        foreach ($quizQuestions as $qq) {
+            $questionInfoMap[(int)$qq['question_id']] = $qq;
+        }
+
+        return view('student/short_answer/result', [
+            'submission'      => $submission,
+            'quiz'            => $quiz,
+            'totalPoints'     => $totalPoints,
+            'questionResults' => $questionResults,
+            'questionInfoMap' => $questionInfoMap,
+        ]);
+    }
+
+    public function shortAnswerMock(int $quizId)
+    {
+        $studentId = session()->get('user_id');
+        $quiz = $this->shortAnswerQuizModel->find($quizId);
+
+        if (!$quiz || (int)$quiz['allow_mock'] !== 1) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không cho phép thi thử.');
+        }
+
+        $questions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quizId);
+        if (empty($questions)) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Đề kiểm tra chưa có câu hỏi nào.');
+        }
+
+        if ((int)$quiz['shuffle_questions'] === 1) {
+            shuffle($questions);
+        }
+
+        $totalPoints = $this->shortAnswerQuizQuestionModel->getMaxPoints($quizId);
+
+        return view('student/short_answer/do_quiz', [
+            'quiz'        => $quiz,
+            'session'     => null,
+            'questions'   => $questions,
+            'is_mock'     => true,
+            'totalPoints' => $totalPoints,
+            'timeLimit'   => (int)$quiz['time_limit'],
+        ]);
+    }
+
+    public function submitShortAnswerMock(int $quizId)
+    {
+        $studentId = session()->get('user_id');
+        $quiz = $this->shortAnswerQuizModel->find($quizId);
+
+        if (!$quiz) {
+            return redirect()->to(base_url('student/dashboard'))->with('error', 'Bài kiểm tra không tồn tại.');
+        }
+
+        $quizQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($quiz['id']);
+        $userAnswers   = (array)($this->request->getPost('answers') ?? []);
+
+        $acceptedAnswersMap = [];
+        foreach ($quizQuestions as $qq) {
+            $qId = (int)$qq['question_id'];
+            $acceptedAnswersMap[$qId] = $this->shortAnswerAcceptedModel->getAnswersByQuestion($qId);
+        }
+
+        $grade = $this->shortAnswerEngine->gradeSubmission($quizQuestions, $acceptedAnswersMap, $userAnswers);
+
+        $subId = $this->shortAnswerSubmissionModel->insert([
+            'session_id'       => null,
+            'quiz_id'          => $quiz['id'],
+            'student_id'       => $studentId,
+            'is_mock'          => 1,
+            'student_answers'  => json_encode($grade['results']),
+            'raw_score'        => $grade['raw_score'],
+            'final_score'      => $grade['raw_score'],
+            'penalty_deducted' => 0.00,
+            'submitted_at'     => date('Y-m-d H:i:s'),
+        ]);
+
+        return redirect()->to(base_url("student/short-answer/result/{$subId}"))->with('success', 'Nộp bài thi thử thành công!');
     }
 }

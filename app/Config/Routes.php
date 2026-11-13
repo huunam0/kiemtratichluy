@@ -107,6 +107,26 @@ $routes->group('teacher', ['filter' => 'role:teacher'], function ($routes) {
     $routes->get('fill-blank/sessions/control/(:num)', 'Teacher::fillBlankSessionControl/$1');
     $routes->post('fill-blank/sessions/approve/(:num)', 'Teacher::approveFillBlankParticipant/$1');
     $routes->post('fill-blank/sessions/reject/(:num)', 'Teacher::rejectFillBlankParticipant/$1');
+
+    // Short Answer (Trả lời ngắn) Management
+    $routes->get('short-answer/questions', 'Teacher::shortAnswerQuestions');
+    $routes->match(['get', 'post'], 'short-answer/questions/create', 'Teacher::createShortAnswerQuestion');
+    $routes->match(['get', 'post'], 'short-answer/questions/edit/(:num)', 'Teacher::editShortAnswerQuestion/$1');
+    $routes->get('short-answer/questions/delete/(:num)', 'Teacher::deleteShortAnswerQuestion/$1');
+    $routes->post('short-answer/questions/delete-answer/(:num)', 'Teacher::deleteShortAnswerAcceptedAnswer/$1');
+
+    $routes->get('short-answer/quizzes', 'Teacher::shortAnswerQuizzes');
+    $routes->match(['get', 'post'], 'short-answer/quizzes/create', 'Teacher::createShortAnswerQuiz');
+    $routes->match(['get', 'post'], 'short-answer/quizzes/edit/(:num)', 'Teacher::editShortAnswerQuiz/$1');
+    $routes->get('short-answer/quizzes/delete/(:num)', 'Teacher::deleteShortAnswerQuiz/$1');
+    $routes->post('short-answer/quizzes/add-question/(:num)', 'Teacher::addShortAnswerQuizQuestion/$1');
+    $routes->post('short-answer/quizzes/remove-question/(:num)/(:num)', 'Teacher::removeShortAnswerQuizQuestion/$1/$2');
+    $routes->post('short-answer/quizzes/update-points/(:num)/(:num)', 'Teacher::updateShortAnswerQuizQuestionPoints/$1/$2');
+
+    $routes->get('short-answer/quizzes/control/(:num)', 'Teacher::shortAnswerSessionControl/$1');
+    $routes->post('short-answer/quizzes/open/(:num)', 'Teacher::openShortAnswerQuiz/$1');
+    $routes->post('short-answer/quizzes/close/(:num)', 'Teacher::closeShortAnswerQuiz/$1');
+    $routes->post('short-answer/quizzes/recalculate/(:num)', 'Teacher::recalculateShortAnswerPenalties/$1');
 });
 
 // Student routes
@@ -137,6 +157,13 @@ $routes->group('student', ['filter' => 'role:student'], function ($routes) {
     $routes->get('fill-blank/check-approval/(:num)', 'Student::checkFillBlankApproval/$1');
     $routes->get('fill-blank/exam/(:num)', 'Student::startFillBlankExam/$1');
     $routes->post('fill-blank/submit-exam/(:num)', 'Student::submitFillBlankExam/$1');
+
+    // Short Answer (Trả lời ngắn) Student routes
+    $routes->get('short-answer/mock/(:num)', 'Student::shortAnswerMock/$1');
+    $routes->post('short-answer/submit-mock/(:num)', 'Student::submitShortAnswerMock/$1');
+    $routes->get('short-answer/exam/(:num)', 'Student::shortAnswerExam/$1');
+    $routes->post('short-answer/submit/(:num)', 'Student::submitShortAnswerExam/$1');
+    $routes->get('short-answer/result/(:num)', 'Student::shortAnswerResult/$1');
 });
 
 // Public Practice Quiz routes (accessible via shared link)

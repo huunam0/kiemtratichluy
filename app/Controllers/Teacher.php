@@ -20,6 +20,13 @@ use App\Models\FillBlankSessionModel;
 use App\Models\FillBlankParticipantModel;
 use App\Models\FillBlankResultModel;
 use App\Models\ClassStudentModel;
+use App\Models\ShortAnswerQuestionModel;
+use App\Models\ShortAnswerAcceptedAnswerModel;
+use App\Models\ShortAnswerQuizModel;
+use App\Models\ShortAnswerQuizQuestionModel;
+use App\Models\ShortAnswerSessionModel;
+use App\Models\ShortAnswerSubmissionModel;
+use App\Libraries\ShortAnswerEngine;
 use App\Libraries\SimpleXlsExport;
 
 class Teacher extends BaseController
@@ -42,6 +49,13 @@ class Teacher extends BaseController
     protected $fillBlankParticipantModel;
     protected $fillBlankResultModel;
     protected $classStudentModel;
+    protected $shortAnswerQuestionModel;
+    protected $shortAnswerAcceptedModel;
+    protected $shortAnswerQuizModel;
+    protected $shortAnswerQuizQuestionModel;
+    protected $shortAnswerSessionModel;
+    protected $shortAnswerSubmissionModel;
+    protected $shortAnswerEngine;
 
     public function __construct()
     {
@@ -63,6 +77,13 @@ class Teacher extends BaseController
         $this->fillBlankParticipantModel = new FillBlankParticipantModel();
         $this->fillBlankResultModel      = new FillBlankResultModel();
         $this->classStudentModel         = new ClassStudentModel();
+        $this->shortAnswerQuestionModel  = new ShortAnswerQuestionModel();
+        $this->shortAnswerAcceptedModel  = new ShortAnswerAcceptedAnswerModel();
+        $this->shortAnswerQuizModel      = new ShortAnswerQuizModel();
+        $this->shortAnswerQuizQuestionModel = new ShortAnswerQuizQuestionModel();
+        $this->shortAnswerSessionModel   = new ShortAnswerSessionModel();
+        $this->shortAnswerSubmissionModel = new ShortAnswerSubmissionModel();
+        $this->shortAnswerEngine         = new ShortAnswerEngine();
     }
 
     public function dashboard()
@@ -1979,4 +2000,540 @@ class Teacher extends BaseController
 
         return redirect()->back()->with('error', 'Không thể thao tác.');
     }
+
+    // =========================================================================
+    // DẠNG CÂU HỎI TRẢ LỜI NGẮN (SHORT ANSWER)
+    // =========================================================================
+
+    public function shortAnswerQuestions()
+    {
+        $teacherId = session()->get('user_id');
+        $questions = $this->shortAnswerQuestionModel->getQuestionsByTeacher($teacherId);
+
+        return view('teacher/short_answer/questions', [
+            'questions' => $questions,
+        ]);
+    }
+
+    public function createShortAnswerQuestion()
+    {
+        $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
+        $subjectModel = new \App\Models\SubjectModel();
+
+        if ($this->request->getMethod() === 'POST') {
+            $title        = trim((string)$this->request->getPost('title'));
+            $topicId      = (int)$this->request->getPost('topic_id');
+            $questionText = trim((string)$this->request->getPost('question_text'));
+            $answers      = (array)($this->request->getPost('answers') ?? []);
+            $cases        = (array)($this->request->getPost('case_sensitives') ?? []);
+            $spaces       = (array)($this->request->getPost('space_sensitives') ?? []);
+
+            if (empty($title) || empty($questionText)) {
+                return redirect()->back()->with('error', 'Vui lòng nhập Tên câu hỏi và Nội dung câu hỏi.')->withInput();
+            }
+            if ($topicId <= 0) {
+                return redirect()->back()->with('error', 'Vui lòng chọn Chủ đề.')->withInput();
+            }
+
+            $validAnswers = [];
+            foreach ($answers as $idx => $ans) {
+                $ansStr = trim((string)$ans);
+                if ($ansStr !== '') {
+                    $validAnswers[] = [
+                        'answer_text'     => $ansStr,
+                        'case_sensitive'  => !empty($cases[$idx]) ? 1 : 0,
+                        'space_sensitive' => !empty($spaces[$idx]) ? 1 : 0,
+                    ];
+                }
+            }
+
+            if (empty($validAnswers)) {
+                return redirect()->back()->with('error', 'Vui lòng nhập ít nhất 1 đáp án đúng cho câu hỏi.')->withInput();
+            }
+
+            $qId = $this->shortAnswerQuestionModel->insert([
+                'teacher_id'    => $teacherId,
+                'school_id'     => $schoolId,
+                'topic_id'      => $topicId,
+                'title'         => $title,
+                'question_text' => $questionText,
+            ]);
+
+            foreach ($validAnswers as $i => $va) {
+                $this->shortAnswerAcceptedModel->insert([
+                    'question_id'     => $qId,
+                    'answer_text'     => $va['answer_text'],
+                    'case_sensitive'  => $va['case_sensitive'],
+                    'space_sensitive' => $va['space_sensitive'],
+                    'sort_order'      => $i,
+                ]);
+            }
+
+            return redirect()->to(base_url('teacher/short-answer/questions'))->with('success', 'Tạo câu hỏi trả lời ngắn thành công!');
+        }
+
+        $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
+        return view('teacher/short_answer/question_form', [
+            'question' => null,
+            'answers'  => [],
+            'subjects' => $subjects,
+        ]);
+    }
+
+    public function editShortAnswerQuestion(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $question  = $this->shortAnswerQuestionModel->find($id);
+        $subjectModel = new \App\Models\SubjectModel();
+
+        if (!$question || (int)$question['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/short-answer/questions'))->with('error', 'Không tìm thấy câu hỏi.');
+        }
+
+        $topicModel = new \App\Models\TopicModel();
+        $topic = $topicModel->find($question['topic_id']);
+        if ($topic) {
+            $question['subject_id']  = $topic['subject_id'];
+            $question['grade_level'] = $topic['grade_level'];
+        }
+
+        if ($this->request->getMethod() === 'POST') {
+            $action = $this->request->getPost('action');
+
+            if ($action === 'add_answer') {
+                $ansText = trim((string)$this->request->getPost('new_answer_text'));
+                $case    = (int)$this->request->getPost('new_case_sensitive');
+                $space   = (int)$this->request->getPost('new_space_sensitive');
+
+                if ($ansText === '') {
+                    return redirect()->back()->with('error', 'Nội dung đáp án không được để trống.');
+                }
+
+                $this->shortAnswerAcceptedModel->insert([
+                    'question_id'     => $id,
+                    'answer_text'     => $ansText,
+                    'case_sensitive'  => $case ? 1 : 0,
+                    'space_sensitive' => $space ? 1 : 0,
+                ]);
+
+                return redirect()->to(base_url("teacher/short-answer/questions/edit/{$id}"))->with('success', 'Đã thêm đáp án đúng mới!');
+            } else {
+                $title        = trim((string)$this->request->getPost('title'));
+                $topicId      = (int)$this->request->getPost('topic_id');
+                $questionText = trim((string)$this->request->getPost('question_text'));
+
+                if (empty($title) || empty($questionText)) {
+                    return redirect()->back()->with('error', 'Vui lòng nhập Tên và Nội dung câu hỏi.');
+                }
+
+                $this->shortAnswerQuestionModel->update($id, [
+                    'title'         => $title,
+                    'topic_id'      => $topicId > 0 ? $topicId : $question['topic_id'],
+                    'question_text' => $questionText,
+                ]);
+
+                // Update existing answers if submitted
+                $existingAnswers = (array)($this->request->getPost('existing_answers') ?? []);
+                foreach ($existingAnswers as $ansId => $data) {
+                    $ansId = (int)$ansId;
+                    $row = $this->shortAnswerAcceptedModel->find($ansId);
+                    if ($row && (int)$row['question_id'] === $id) {
+                        $this->shortAnswerAcceptedModel->update($ansId, [
+                            'answer_text'     => trim((string)($data['answer_text'] ?? '')),
+                            'case_sensitive'  => !empty($data['case_sensitive']) ? 1 : 0,
+                            'space_sensitive' => !empty($data['space_sensitive']) ? 1 : 0,
+                        ]);
+                    }
+                }
+
+                return redirect()->to(base_url("teacher/short-answer/questions/edit/{$id}"))->with('success', 'Cập nhật câu hỏi thành công!');
+            }
+        }
+
+        $answers  = $this->shortAnswerAcceptedModel->getAnswersByQuestion($id);
+        $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
+
+        return view('teacher/short_answer/question_form', [
+            'question' => $question,
+            'answers'  => $answers,
+            'subjects' => $subjects,
+        ]);
+    }
+
+    public function deleteShortAnswerQuestion(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $question  = $this->shortAnswerQuestionModel->find($id);
+
+        if ($question && (int)$question['teacher_id'] === $teacherId) {
+            $this->shortAnswerQuestionModel->delete($id);
+            $this->shortAnswerAcceptedModel->deleteByQuestion($id);
+            $this->shortAnswerQuizQuestionModel->where('question_id', $id)->delete();
+            return redirect()->to(base_url('teacher/short-answer/questions'))->with('success', 'Đã xoá câu hỏi thành công.');
+        }
+
+        return redirect()->to(base_url('teacher/short-answer/questions'))->with('error', 'Không thể xoá câu hỏi này.');
+    }
+
+    public function deleteShortAnswerAcceptedAnswer(int $answerId)
+    {
+        $teacherId = session()->get('user_id');
+        $ans = $this->shortAnswerAcceptedModel->find($answerId);
+
+        if ($ans) {
+            $question = $this->shortAnswerQuestionModel->find($ans['question_id']);
+            if ($question && (int)$question['teacher_id'] === $teacherId) {
+                $count = $this->shortAnswerAcceptedModel->where('question_id', $ans['question_id'])->countAllResults();
+                if ($count <= 1) {
+                    return redirect()->back()->with('error', 'Câu hỏi cần có ít nhất 1 đáp án đúng.');
+                }
+                $this->shortAnswerAcceptedModel->delete($answerId);
+                return redirect()->back()->with('success', 'Đã xoá đáp án.');
+            }
+        }
+
+        return redirect()->back()->with('error', 'Không tìm thấy đáp án cần xoá.');
+    }
+
+    // =========================================================================
+    // BÀI KIỂM TRA TRẢ LỜI NGẮN (SHORT ANSWER QUIZZES)
+    // =========================================================================
+
+    public function shortAnswerQuizzes()
+    {
+        $teacherId = session()->get('user_id');
+        $quizzes   = $this->shortAnswerQuizModel->getQuizzesByTeacher($teacherId);
+
+        // Calculate question count and total points for each quiz
+        foreach ($quizzes as &$qz) {
+            $qz['question_count'] = $this->shortAnswerQuizQuestionModel->where('quiz_id', $qz['id'])->countAllResults();
+            $qz['total_points']   = $this->shortAnswerQuizQuestionModel->getMaxPoints((int)$qz['id']);
+        }
+        unset($qz);
+
+        return view('teacher/short_answer/quizzes', [
+            'quizzes' => $quizzes,
+        ]);
+    }
+
+    public function createShortAnswerQuiz()
+    {
+        $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
+
+        if ($this->request->getMethod() === 'POST') {
+            $title       = trim((string)$this->request->getPost('title'));
+            $classId     = (int)$this->request->getPost('class_id');
+            $timeLimit   = (int)$this->request->getPost('time_limit') ?: 15;
+            $shuffle     = $this->request->getPost('shuffle_questions') !== null ? (int)$this->request->getPost('shuffle_questions') : 1;
+            $penalty     = (float)($this->request->getPost('penalty_coefficient') ?? 0.00);
+            $allowMock   = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
+            $selectedQs  = (array)($this->request->getPost('selected_questions') ?? []);
+            $pointsList  = (array)($this->request->getPost('question_points') ?? []);
+
+            if (empty($title) || empty($classId)) {
+                return redirect()->back()->with('error', 'Vui lòng nhập Tên bài kiểm tra và Chọn lớp học.')->withInput();
+            }
+
+            $quizId = $this->shortAnswerQuizModel->insert([
+                'teacher_id'          => $teacherId,
+                'school_id'           => $schoolId,
+                'class_id'            => $classId,
+                'title'               => $title,
+                'time_limit'          => $timeLimit,
+                'shuffle_questions'   => $shuffle,
+                'penalty_coefficient' => $penalty,
+                'is_open'             => 0,
+                'allow_mock'          => $allowMock,
+            ]);
+
+            $order = 0;
+            foreach ($selectedQs as $qId) {
+                $qId = (int)$qId;
+                $pts = isset($pointsList[$qId]) ? (float)$pointsList[$qId] : 1.00;
+                if ($pts <= 0) $pts = 1.00;
+                $this->shortAnswerQuizQuestionModel->insert([
+                    'quiz_id'     => $quizId,
+                    'question_id' => $qId,
+                    'points'      => $pts,
+                    'sort_order'  => $order++,
+                ]);
+            }
+
+            return redirect()->to(base_url("teacher/short-answer/quizzes/edit/{$quizId}"))->with('success', 'Tạo bài kiểm tra thành công! Bạn có thể xem lại hoặc thêm câu hỏi.');
+        }
+
+        $classes   = $this->classModel->getClassesBySchool($schoolId);
+        $questions = $this->shortAnswerQuestionModel->getQuestionsByTeacher($teacherId);
+
+        return view('teacher/short_answer/quiz_form', [
+            'quiz'           => null,
+            'classes'        => $classes,
+            'questions'      => $questions,
+            'quizQuestions'  => [],
+        ]);
+    }
+
+    public function editShortAnswerQuiz(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
+        $quiz      = $this->shortAnswerQuizModel->find($id);
+
+        if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/short-answer/quizzes'))->with('error', 'Không tìm thấy bài kiểm tra.');
+        }
+
+        if ($this->request->getMethod() === 'POST') {
+            $title       = trim((string)$this->request->getPost('title'));
+            $classId     = (int)$this->request->getPost('class_id');
+            $timeLimit   = (int)$this->request->getPost('time_limit') ?: 15;
+            $shuffle     = $this->request->getPost('shuffle_questions') !== null ? (int)$this->request->getPost('shuffle_questions') : 1;
+            $penalty     = (float)($this->request->getPost('penalty_coefficient') ?? 0.00);
+            $allowMock   = $this->request->getPost('allow_mock') !== null ? (int)$this->request->getPost('allow_mock') : 1;
+
+            if (empty($title) || empty($classId)) {
+                return redirect()->back()->with('error', 'Vui lòng nhập Tên bài kiểm tra và Chọn lớp học.')->withInput();
+            }
+
+            $this->shortAnswerQuizModel->update($id, [
+                'title'               => $title,
+                'class_id'            => $classId,
+                'time_limit'          => $timeLimit,
+                'shuffle_questions'   => $shuffle,
+                'penalty_coefficient' => $penalty,
+                'allow_mock'          => $allowMock,
+            ]);
+
+            return redirect()->to(base_url("teacher/short-answer/quizzes/edit/{$id}"))->with('success', 'Cập nhật cấu hình bài kiểm tra thành công!');
+        }
+
+        $classes       = $this->classModel->getClassesBySchool($schoolId);
+        $allQuestions  = $this->shortAnswerQuestionModel->getQuestionsByTeacher($teacherId);
+        $quizQuestions = $this->shortAnswerQuizQuestionModel->getQuestionsWithContent($id);
+
+        return view('teacher/short_answer/quiz_form', [
+            'quiz'           => $quiz,
+            'classes'        => $classes,
+            'questions'      => $allQuestions,
+            'quizQuestions'  => $quizQuestions,
+        ]);
+    }
+
+    public function deleteShortAnswerQuiz(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->shortAnswerQuizModel->find($id);
+
+        if ($quiz && (int)$quiz['teacher_id'] === $teacherId) {
+            $this->shortAnswerQuizModel->delete($id);
+            $this->shortAnswerQuizQuestionModel->deleteByQuiz($id);
+            $this->shortAnswerSessionModel->where('quiz_id', $id)->delete();
+            $this->shortAnswerSubmissionModel->where('quiz_id', $id)->delete();
+            return redirect()->to(base_url('teacher/short-answer/quizzes'))->with('success', 'Đã xoá bài kiểm tra thành công.');
+        }
+
+        return redirect()->to(base_url('teacher/short-answer/quizzes'))->with('error', 'Không thể xoá bài kiểm tra này.');
+    }
+
+    public function addShortAnswerQuizQuestion(int $quizId)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->shortAnswerQuizModel->find($quizId);
+
+        if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
+            return redirect()->back()->with('error', 'Không có quyền thao tác.');
+        }
+
+        $questionId = (int)$this->request->getPost('question_id');
+        $points     = (float)($this->request->getPost('points') ?: 1.00);
+        if ($points <= 0) $points = 1.00;
+
+        $exists = $this->shortAnswerQuizQuestionModel->where('quiz_id', $quizId)->where('question_id', $questionId)->first();
+        if ($exists) {
+            return redirect()->back()->with('error', 'Câu hỏi này đã có trong đề kiểm tra.');
+        }
+
+        $this->shortAnswerQuizQuestionModel->insert([
+            'quiz_id'     => $quizId,
+            'question_id' => $questionId,
+            'points'      => $points,
+            'sort_order'  => 999,
+        ]);
+
+        return redirect()->back()->with('success', 'Đã thêm câu hỏi vào đề kiểm tra.');
+    }
+
+    public function removeShortAnswerQuizQuestion(int $quizId, int $qqId)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->shortAnswerQuizModel->find($quizId);
+
+        if ($quiz && (int)$quiz['teacher_id'] === $teacherId) {
+            $this->shortAnswerQuizQuestionModel->where('quiz_id', $quizId)->where('id', $qqId)->delete();
+            return redirect()->back()->with('success', 'Đã xóa câu hỏi khỏi đề kiểm tra.');
+        }
+
+        return redirect()->back()->with('error', 'Không thể thao tác.');
+    }
+
+    public function updateShortAnswerQuizQuestionPoints(int $quizId, int $qqId)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->shortAnswerQuizModel->find($quizId);
+
+        if ($quiz && (int)$quiz['teacher_id'] === $teacherId) {
+            $points = (float)$this->request->getPost('points');
+            if ($points > 0) {
+                $this->shortAnswerQuizQuestionModel->where('quiz_id', $quizId)->where('id', $qqId)->set(['points' => $points])->update();
+                return redirect()->back()->with('success', 'Đã cập nhật điểm cho câu hỏi.');
+            }
+        }
+
+        return redirect()->back()->with('error', 'Điểm không hợp lệ.');
+    }
+
+    // =========================================================================
+    // ĐIỀU KHIỂN BÀI KIỂM TRA (MỞ / ĐÓNG / TÍNH ĐIỂM PHẠT)
+    // =========================================================================
+
+    public function shortAnswerSessionControl(int $quizId)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->shortAnswerQuizModel->find($quizId);
+
+        if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
+            return redirect()->to(base_url('teacher/short-answer/quizzes'))->with('error', 'Không tìm thấy bài kiểm tra.');
+        }
+
+        $class    = $this->classModel->find($quiz['class_id']);
+        $sessions = $this->shortAnswerSessionModel->getSessionsByQuiz($quizId);
+
+        // Lấy session được chọn hoặc session mới nhất
+        $sessionId = (int)($this->request->getGet('session_id') ?? ($sessions[0]['id'] ?? 0));
+        $currentSession = null;
+        if ($sessionId > 0) {
+            $currentSession = $this->shortAnswerSessionModel->find($sessionId);
+        }
+
+        $submissions = [];
+        if ($currentSession) {
+            $submissions = $this->shortAnswerSubmissionModel->getRealSubmissionsBySession($currentSession['id']);
+        }
+
+        $totalPoints = $this->shortAnswerQuizQuestionModel->getMaxPoints($quizId);
+
+        return view('teacher/short_answer/session_control', [
+            'quiz'           => $quiz,
+            'class'          => $class,
+            'sessions'       => $sessions,
+            'currentSession' => $currentSession,
+            'submissions'    => $submissions,
+            'totalPoints'    => $totalPoints,
+        ]);
+    }
+
+    public function openShortAnswerQuiz(int $quizId)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->shortAnswerQuizModel->find($quizId);
+
+        if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
+            return redirect()->back()->with('error', 'Không tìm thấy bài kiểm tra.');
+        }
+
+        $qCount = $this->shortAnswerQuizQuestionModel->where('quiz_id', $quizId)->countAllResults();
+        if ($qCount === 0) {
+            return redirect()->back()->with('error', 'Bài kiểm tra chưa có câu hỏi nào. Vui lòng thêm câu hỏi trước khi mở bài.');
+        }
+
+        // Tạo session mới với trạng thái open
+        $sessionId = $this->shortAnswerSessionModel->insert([
+            'quiz_id'    => $quizId,
+            'teacher_id' => $teacherId,
+            'class_id'   => $quiz['class_id'],
+            'status'     => 'open',
+            'opened_at'  => date('Y-m-d H:i:s'),
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        // Cập nhật trạng thái bài kiểm tra
+        $this->shortAnswerQuizModel->update($quizId, [
+            'is_open' => 1,
+        ]);
+
+        return redirect()->to(base_url("teacher/short-answer/quizzes/control/{$quizId}?session_id={$sessionId}"))->with('success', 'Đã MỞ bài kiểm tra thành công! Học sinh có thể vào làm bài ngay.');
+    }
+
+    public function closeShortAnswerQuiz(int $quizId)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->shortAnswerQuizModel->find($quizId);
+
+        if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
+            return redirect()->back()->with('error', 'Không tìm thấy bài kiểm tra.');
+        }
+
+        // Đóng bài kiểm tra
+        $this->shortAnswerQuizModel->update($quizId, [
+            'is_open' => 0,
+        ]);
+
+        // Đóng session đang mở gần nhất
+        $openSession = $this->shortAnswerSessionModel->getLatestOpenSession($quizId);
+        if ($openSession) {
+            $this->shortAnswerSessionModel->update($openSession['id'], [
+                'status'    => 'closed',
+                'closed_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            // Tự động tính điểm phạt nộp chậm cho tất cả bài nộp trong session này
+            $this->applyPenaltiesForSession((int)$openSession['id'], (float)$quiz['penalty_coefficient']);
+
+            return redirect()->to(base_url("teacher/short-answer/quizzes/control/{$quizId}?session_id={$openSession['id']}"))->with('success', 'Đã ĐÓNG bài kiểm tra và tự động tính điểm phạt nộp chậm cho học sinh!');
+        }
+
+        return redirect()->to(base_url("teacher/short-answer/quizzes/control/{$quizId}"))->with('success', 'Đã ĐÓNG bài kiểm tra.');
+    }
+
+    public function recalculateShortAnswerPenalties(int $quizId)
+    {
+        $teacherId = session()->get('user_id');
+        $quiz      = $this->shortAnswerQuizModel->find($quizId);
+
+        if (!$quiz || (int)$quiz['teacher_id'] !== $teacherId) {
+            return redirect()->back()->with('error', 'Không tìm thấy bài kiểm tra.');
+        }
+
+        $sessionId = (int)$this->request->getPost('session_id');
+        if ($sessionId <= 0) {
+            return redirect()->back()->with('error', 'Phiên kiểm tra không hợp lệ.');
+        }
+
+        $this->applyPenaltiesForSession($sessionId, (float)$quiz['penalty_coefficient']);
+
+        return redirect()->to(base_url("teacher/short-answer/quizzes/control/{$quizId}?session_id={$sessionId}"))->with('success', 'Đã tính lại điểm phạt nộp chậm thành công!');
+    }
+
+    /**
+     * Helper: Áp dụng thuật toán tính điểm phạt cho tất cả bài trong session
+     */
+    private function applyPenaltiesForSession(int $sessionId, float $penaltyCoeff)
+    {
+        $submissions = $this->shortAnswerSubmissionModel->getRealSubmissionsBySession($sessionId);
+        if (empty($submissions)) {
+            return;
+        }
+
+        $penalties = $this->shortAnswerEngine->calculatePenalties($submissions, $penaltyCoeff);
+
+        foreach ($penalties as $subId => $p) {
+            $this->shortAnswerSubmissionModel->update($subId, [
+                'final_score'      => $p['final_score'],
+                'penalty_deducted' => $p['penalty_deducted'],
+            ]);
+        }
+    }
 }
+

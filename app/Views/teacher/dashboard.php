@@ -19,7 +19,7 @@
     </div>
 
     <!-- Quick Navigation Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <a href="<?= base_url('teacher/classes') ?>" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition flex items-center justify-between no-underline">
             <div>
                 <div class="text-xs text-gray-500 font-semibold uppercase">Lớp Học</div>
@@ -37,6 +37,16 @@
             </div>
             <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
                 <i class="fa-solid fa-database"></i>
+            </div>
+        </a>
+
+        <a href="<?= base_url('teacher/short-answer/quizzes') ?>" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition flex items-center justify-between no-underline">
+            <div>
+                <div class="text-xs text-gray-500 font-semibold uppercase">Trả Lời Ngắn</div>
+                <div class="text-2xl font-black text-gray-900 mt-1">Đề Thi</div>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-spell-check"></i>
             </div>
         </a>
 
