@@ -69,6 +69,37 @@ let remainingSeconds = <?= $remaining_seconds ?>;
 let currentIndex = 0;
 let answers = {}; // Maps sqa_id -> selected_option
 
+// Decode HTML entities (e.g. &lt;title&gt; → <title> as displayable text)
+function decodeHtmlEntities(str) {
+    const txt = document.createElement('textarea');
+    txt.innerHTML = str;
+    return txt.value;
+}
+
+// Format question content: handles both plain text and Quill HTML
+function formatQuestionContent(content) {
+    if (!content) return '';
+    // If content contains structural HTML tags from Quill editor, render as HTML directly
+    if (/<\/?(?:p|br|h[1-6]|ul|ol|li|pre|code|blockquote|strong|em|b|i|u|span|img|table|tr|td|th)\b/i.test(content)) {
+        return content; // Quill HTML — already has proper &lt; entities inside
+    }
+    // Plain text: decode entities then re-encode as safe displayable HTML
+    const decoded = decodeHtmlEntities(content);
+    return decoded.replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
+                  .replace(/\n/g, '<br>');
+}
+
+// Format option content: always plain text, decode entities for display
+function formatOptionContent(content) {
+    if (!content) return '';
+    const decoded = decodeHtmlEntities(content);
+    return decoded.replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;');
+}
+
 // Initialize user selected answers if any
 questions.forEach(q => {
     if (q.selected_option) {
