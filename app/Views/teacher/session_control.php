@@ -18,13 +18,7 @@
 
         <div class="flex flex-wrap gap-2">
             <!-- Start / Close / Cancel session buttons -->
-            <?php if ($session['status'] === 'waiting'): ?>
-                <button id="btnStartSession" onclick="startSession()" class="btn btn-emerald bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-4 py-2.5 shadow-md">
-                    <i class="fa-solid fa-play me-1"></i> BẮT ĐẦU CHO THI
-                </button>
-            <?php endif; ?>
-
-            <?php if ($session['status'] === 'in_progress'): ?>
+            <?php if ($session['status'] === 'waiting' || $session['status'] === 'in_progress'): ?>
                 <button id="btnEndSession" onclick="endSession()" class="btn btn-danger bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl px-4 py-2.5 shadow-md">
                     <i class="fa-solid fa-lock me-1"></i> ĐÓNG LƯỢT THI THẬT
                 </button>
@@ -146,12 +140,18 @@ function renderParticipants(participants) {
         return;
     }
 
+    // Sort: pending students first, then newest joined first
+    participants.sort((a, b) => {
+        if (a.approval_status === 'pending' && b.approval_status !== 'pending') return -1;
+        if (a.approval_status !== 'pending' && b.approval_status === 'pending') return 1;
+        return b.id - a.id; // newest first (higher id = joined later)
+    });
+
     let html = '';
     participants.forEach(p => {
         let approvalBadge = '';
         if (p.approval_status === 'pending') {
-            approvalBadge = `<button onclick="approveStudent(${p.id})" class="btn btn-success btn-sm rounded-lg font-bold shadow-sm animate-bounce"><i class="fa-solid fa-check me-1"></i> PHÊ DUYỆT</button>
-                             <button onclick="rejectStudent(${p.id})" class="btn btn-danger btn-sm rounded-lg font-bold ms-1"><i class="fa-solid fa-xmark me-1"></i> Từ chối</button>`;
+            approvalBadge = `<button onclick="approveStudent(${p.id})" class="btn btn-success btn-sm rounded-lg font-bold shadow-sm animate-bounce"><i class="fa-solid fa-check me-1"></i> PHÊ DUYỆT</button>`;
         } else if (p.approval_status === 'approved') {
             approvalBadge = '<span class="badge bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1"><i class="fa-solid fa-circle-check me-1"></i> Đã duyệt</span>';
         } else if (p.approval_status === 'rejected') {

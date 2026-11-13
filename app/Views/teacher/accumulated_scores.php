@@ -30,6 +30,11 @@
                 <i class="fa-solid fa-dice me-1"></i> Gọi Ngẫu Nhiên
             </button>
 
+            <!-- Create Session Button -->
+            <button type="button" class="btn btn-warning btn-sm rounded-xl font-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#createSessionModal">
+                <i class="fa-solid fa-play-circle me-1"></i> Tạo Lượt Thi
+            </button>
+
             <a href="<?= base_url('teacher/tests') ?>" class="btn btn-outline-secondary btn-sm rounded-xl">
                 <i class="fa-solid fa-arrow-left me-1"></i> Quay lại Danh sách Bài Tích Luỹ
             </a>
@@ -116,6 +121,52 @@
 
 </div>
 
+
+<!-- ============================================================ -->
+<!-- CREATE SESSION MODAL -->
+<!-- ============================================================ -->
+<div class="modal fade" id="createSessionModal" tabindex="-1" aria-labelledby="createSessionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-3xl border-0 shadow-xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="modal-header bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 px-6 py-4">
+                <h5 class="modal-title font-bold text-lg flex items-center gap-2" id="createSessionModalLabel">
+                    <i class="fa-solid fa-play-circle text-white text-xl"></i>
+                    Tạo Lượt Thi Mới
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="modal-body px-6 py-5">
+                <p class="text-gray-600 text-sm mb-4">
+                    <i class="fa-solid fa-circle-info text-amber-500 me-1"></i>
+                    Tạo lượt thi trực tiếp cho bài kiểm tra <strong><?= esc($test['title']) ?></strong> (Lớp <?= esc($class['name'] ?? '') ?>).
+                </p>
+
+                <form action="<?= base_url('teacher/sessions') ?>" method="POST" class="space-y-4">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="test_id" value="<?= $test['id'] ?>">
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Tên Lượt Thi <span class="text-red-500">*</span></label>
+                        <input type="text" name="session_title" required
+                               class="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                               placeholder="VD: Lượt 1 - Kiểm tra bài 5 (15 phút)">
+                    </div>
+
+                    <div class="p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-900">
+                        <i class="fa-solid fa-circle-info me-1 text-amber-600"></i> Học sinh sẽ tự lựa chọn số câu làm (từ 3 đến 6 câu) khi bắt đầu lượt thi của mình.
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-md transition">
+                        Khởi Tạo Lượt Thi <i class="fa-solid fa-arrow-right ms-1"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ============================================================ -->
 <!-- RANDOM PICK MODAL -->
