@@ -17,7 +17,7 @@ class ShortAnswerSessionModel extends Model
 
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';
-    protected $updatedField  = false;
+    protected $updatedField  = '';
 
     public function getLatestOpenSession(int $quizId): ?array
     {
