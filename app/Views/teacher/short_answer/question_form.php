@@ -7,9 +7,16 @@
             <h1 class="text-2xl font-bold text-gray-900"><?= $question ? 'Chỉnh sửa Câu hỏi Trả lời ngắn' : 'Tạo Câu hỏi Trả lời ngắn Mới' ?></h1>
             <p class="text-gray-500 text-sm mt-0.5">Mỗi câu hỏi có thể cấu hình nhiều đáp án đúng, mỗi đáp án có tùy chọn phân biệt chữ hoa/thường và dấu cách.</p>
         </div>
-        <a href="<?= base_url('teacher/short-answer/questions') ?>" class="btn btn-outline-secondary rounded-xl">
-            <i class="fa-solid fa-arrow-left me-1"></i> Quay lại
-        </a>
+        <div class="d-flex items-center gap-2">
+            <?php if ($question): ?>
+                <a href="<?= base_url('teacher/short-answer/questions/preview/' . $question['id']) ?>" class="btn btn-outline-indigo border border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-semibold rounded-xl">
+                    <i class="fa-solid fa-eye me-1"></i> Xem thử
+                </a>
+            <?php endif; ?>
+            <a href="<?= base_url('teacher/short-answer/questions') ?>" class="btn btn-outline-secondary rounded-xl">
+                <i class="fa-solid fa-arrow-left me-1"></i> Quay lại
+            </a>
+        </div>
     </div>
 
     <!-- MAIN QUESTION FORM -->
@@ -150,10 +157,15 @@
                     </div>
                 <?php endif; ?>
 
-                <div class="col-12 mt-4 pt-3 border-top d-flex gap-2">
+                <div class="col-12 mt-4 pt-3 border-top d-flex flex-wrap gap-2">
                     <button type="submit" class="btn bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-xl px-5 py-2.5">
                         <i class="fa-solid fa-floppy-disk me-1"></i> <?= $question ? 'Cập nhật Câu hỏi' : 'Lưu Câu hỏi' ?>
                     </button>
+                    <?php if ($question): ?>
+                        <a href="<?= base_url('teacher/short-answer/questions/preview/' . $question['id']) ?>" class="btn btn-outline-indigo border border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-bold rounded-xl px-4 py-2.5">
+                            <i class="fa-solid fa-eye me-1"></i> Xem thử
+                        </a>
+                    <?php endif; ?>
                     <a href="<?= base_url('teacher/short-answer/questions') ?>" class="btn btn-light rounded-xl px-4 py-2.5">Hủy</a>
                 </div>
             </div>
