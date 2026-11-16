@@ -9,6 +9,12 @@
         </div>
         <div class="d-flex items-center gap-2">
             <?php if ($question): ?>
+                <a href="<?= base_url('teacher/short-answer/questions/duplicate/' . $question['id']) ?>" 
+                   class="btn bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl px-3.5 py-2 shadow-sm"
+                   onclick="return confirm('Bạn có muốn nhân bản câu hỏi này thành câu hỏi mới với tên kèm đuôi \"(x2)\"?');"
+                   title="Tạo bản sao giống hệt câu hỏi này kèm đuôi (x2)">
+                    <i class="fa-solid fa-clone me-1"></i> Nhân bản
+                </a>
                 <a href="<?= base_url('teacher/short-answer/questions/preview/' . $question['id']) ?>" class="btn btn-outline-indigo border border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-semibold rounded-xl">
                     <i class="fa-solid fa-eye me-1"></i> Xem thử
                 </a>
@@ -164,6 +170,12 @@
                     <?php if ($question): ?>
                         <a href="<?= base_url('teacher/short-answer/questions/preview/' . $question['id']) ?>" class="btn btn-outline-indigo border border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-bold rounded-xl px-4 py-2.5">
                             <i class="fa-solid fa-eye me-1"></i> Xem thử
+                        </a>
+                        <a href="<?= base_url('teacher/short-answer/questions/duplicate/' . $question['id']) ?>" 
+                           class="btn bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-4 py-2.5 shadow-sm"
+                           onclick="return confirm('Bạn có muốn nhân bản câu hỏi này thành câu hỏi mới với tên kèm đuôi \"(x2)\"?');"
+                           title="Tạo bản sao giống hệt câu hỏi này kèm đuôi (x2)">
+                            <i class="fa-solid fa-clone me-1"></i> Nhân bản
                         </a>
                     <?php endif; ?>
                     <a href="<?= base_url('teacher/short-answer/questions') ?>" class="btn btn-light rounded-xl px-4 py-2.5">Hủy</a>
