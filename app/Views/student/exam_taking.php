@@ -69,11 +69,11 @@ let remainingSeconds = <?= $remaining_seconds ?>;
 let currentIndex = 0;
 let answers = {}; // Maps sqa_id -> selected_option
 
-// Global helper functions from main layout (safe fallback if ever undefined)
-function formatQuestionContent(c) {
+// Safe formatting helpers using global layout functions
+function safeFormatQuestion(c) {
     return (typeof window.formatQuestionContent === 'function') ? window.formatQuestionContent(c) : c;
 }
-function formatOptionContent(c) {
+function safeFormatOption(c) {
     return (typeof window.formatOptionContent === 'function') ? window.formatOptionContent(c) : c;
 }
 
@@ -136,7 +136,7 @@ function renderQuestion() {
     const q = questions[currentIndex];
 
     document.getElementById('questionOrderBadge').innerText = `Câu ${currentIndex + 1} / ${questions.length}`;
-    document.getElementById('questionContent').innerHTML = typeof formatQuestionContent === 'function' ? formatQuestionContent(q.content) : q.content;
+    document.getElementById('questionContent').innerHTML = safeFormatQuestion(q.content);
 
     const optionsContainer = document.getElementById('options-container');
     optionsContainer.innerHTML = '';
@@ -155,7 +155,7 @@ function renderQuestion() {
                 : 'border-gray-200 bg-white text-gray-800 active:bg-gray-100 hover:border-gray-300'
         }`;
 
-        const formattedOpt = typeof formatOptionContent === 'function' ? formatOptionContent(opt.content) : opt.content;
+        const formattedOpt = safeFormatOption(opt.content);
 
         btn.innerHTML = `
             <span class="badge-label w-11 h-11 rounded-xl flex items-center justify-center font-bold text-lg text-white transition-colors shrink-0 ${

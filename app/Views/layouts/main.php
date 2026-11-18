@@ -56,7 +56,7 @@
 
     window.formatOptionContent = function(content) {
         if (!content || typeof content !== 'string') return '';
-        content = content.replace(/\[hide\][\s\S]*?\[\/hide\]\s*/gi, '').replace(/\[\/?hide\]/gi, '').trim();
+        content = content.replace(/\[hide(?:\s+[^\]]*)?\][\s\S]*?\[\/hide\]\s*/gi, '').replace(/\[\/?hide(?:\s+[^\]]*)?\]\s*/gi, '').trim();
         if (!content) return '';
         if (/^\s*<img\s+[^>]*src=[^>]*>\s*$/i.test(content)) {
             return content;
@@ -68,8 +68,8 @@
     window.formatQuestionContent = function(content) {
         if (!content || typeof content !== 'string') return '';
 
-        // 1. Strip [hide]...[/hide] tags
-        content = content.replace(/\[hide\][\s\S]*?\[\/hide\]\s*/gi, '').replace(/\[\/?hide\]/gi, '').trim();
+        // 1. Strip [hide]...[/hide] tags (including [hide 6.27] tags)
+        content = content.replace(/\[hide(?:\s+[^\]]*)?\][\s\S]*?\[\/hide\]\s*/gi, '').replace(/\[\/?hide(?:\s+[^\]]*)?\]\s*/gi, '').trim();
         if (!content) return '';
 
         // 2. Check if Quill Rich-Text HTML (starts with block tag and ends with closing block tag)

@@ -29,9 +29,9 @@ function format_question_content(?string $content): string
         return '';
     }
 
-    // 1. Strip [hide]...[/hide] tags
-    $content = preg_replace('/\[hide\][\s\S]*?\[\/hide\]\s*/i', '', $content);
-    $content = preg_replace('/\[\/?hide\]/i', '', $content);
+    // 1. Strip [hide]...[/hide] tags (including [hide 6.27] tags)
+    $content = preg_replace('/\[hide(?:\s+[^\]]*)?\][\s\S]*?\[\/hide\]\s*/i', '', $content);
+    $content = preg_replace('/\[\/?hide(?:\s+[^\]]*)?\]\s*/i', '', $content);
     $content = trim($content);
 
     if ($content === '') {
@@ -81,8 +81,8 @@ function format_option_content(?string $option): string
         return '';
     }
 
-    $option = preg_replace('/\[hide\][\s\S]*?\[\/hide\]\s*/i', '', $option);
-    $option = preg_replace('/\[\/?hide\]/i', '', $option);
+    $option = preg_replace('/\[hide(?:\s+[^\]]*)?\][\s\S]*?\[\/hide\]\s*/i', '', $option);
+    $option = preg_replace('/\[\/?hide(?:\s+[^\]]*)?\]\s*/i', '', $option);
     $option = trim($option);
 
     // Allow standalone <img> tags
