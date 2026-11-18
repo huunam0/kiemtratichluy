@@ -347,7 +347,9 @@ class Teacher extends BaseController
                 return redirect()->back()->with('error', 'Vui lòng chọn Chủ đề.')->withInput();
             }
 
-            $this->questionModel->insert([
+            $equivalentId = (int)$this->request->getPost('equivalent_id');
+
+            $newId = $this->questionModel->insert([
                 'creator_id'     => session()->get('user_id'),
                 'topic_id'       => $topicId,
                 'content'        => $content,
@@ -357,7 +359,12 @@ class Teacher extends BaseController
                 'option_d'       => !empty(trim((string)$optionD)) ? $optionD : null,
                 'correct_option' => $correctOption,
                 'explanation'    => $explanation,
+                'equivalent_id'  => $equivalentId > 0 ? $equivalentId : null,
             ]);
+
+            if ($equivalentId <= 0 && $newId) {
+                $this->questionModel->update($newId, ['equivalent_id' => $newId]);
+            }
 
             return redirect()->to(base_url('teacher/questions'))->with('success', 'Thêm câu hỏi mới vào Ngân hàng chung thành công!');
         }
@@ -393,6 +400,8 @@ class Teacher extends BaseController
             $correctOption = (string)$this->request->getPost('correct_option');
             $topicId       = (int)$this->request->getPost('topic_id');
             $explanation   = (string)$this->request->getPost('explanation');
+            $equivInput    = $this->request->getPost('equivalent_id');
+            $equivalentId  = ($equivInput !== null && $equivInput !== '' && (int)$equivInput > 0) ? (int)$equivInput : $id;
 
             if ($topicId > 0) {
                 $this->questionModel->update($id, [
@@ -404,6 +413,7 @@ class Teacher extends BaseController
                     'option_d'       => !empty(trim((string)$optionD)) ? $optionD : null,
                     'correct_option' => $correctOption,
                     'explanation'    => $explanation,
+                    'equivalent_id'  => $equivalentId,
                 ]);
             }
 
@@ -412,6 +422,74 @@ class Teacher extends BaseController
 
         $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
         return view('teacher/question_form', ['question' => $question, 'subjects' => $subjects]);
+    }
+
+    public function previewQuestion(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $question  = $this->questionModel->find($id);
+
+        if (!$question) {
+            return redirect()->to(base_url('teacher/questions'))->with('error', 'Không tìm thấy câu hỏi.');
+        }
+
+        $topicModel = new \App\Models\TopicModel();
+        $topic = $topicModel->find($question['topic_id']);
+        if ($topic) {
+            $subjectModel = new \App\Models\SubjectModel();
+            $subject = $subjectModel->find($topic['subject_id']);
+            $question['subject_name'] = $subject['name'] ?? 'Tin học';
+            $question['topic_name']   = $topic['name'] ?? '';
+            $question['grade_level']  = $topic['grade_level'] ?? 11;
+        }
+
+        // Tác giả
+        $creator = $this->userModel->find($question['creator_id']);
+        $question['creator_name'] = $creator['full_name'] ?? 'Giáo viên';
+
+        // Lấy danh sách các câu hỏi khác cùng nhóm tương đương
+        $equivId = !empty($question['equivalent_id']) ? (int)$question['equivalent_id'] : (int)$question['id'];
+        $equivalentQuestions = $this->questionModel
+                                    ->select('questions.*, users.full_name as creator_name')
+                                    ->join('users', 'users.id = questions.creator_id', 'left')
+                                    ->where('equivalent_id', $equivId)
+                                    ->where('questions.id !=', $id)
+                                    ->findAll();
+
+        return view('teacher/question_preview', [
+            'question'            => $question,
+            'equivalentQuestions' => $equivalentQuestions,
+            'isCreator'           => ((int)$question['creator_id'] === (int)$teacherId),
+            'teacher_id'          => $teacherId,
+        ]);
+    }
+
+    public function duplicateQuestion(int $id)
+    {
+        $teacherId = session()->get('user_id');
+        $question  = $this->questionModel->find($id);
+
+        if (!$question) {
+            return redirect()->to(base_url('teacher/questions'))->with('error', 'Không tìm thấy câu hỏi để nhân bản.');
+        }
+
+        $equivId = !empty($question['equivalent_id']) ? (int)$question['equivalent_id'] : (int)$question['id'];
+
+        $newId = $this->questionModel->insert([
+            'creator_id'     => $teacherId,
+            'topic_id'       => $question['topic_id'],
+            'content'        => $question['content'],
+            'option_a'       => $question['option_a'],
+            'option_b'       => $question['option_b'],
+            'option_c'       => $question['option_c'],
+            'option_d'       => $question['option_d'],
+            'correct_option' => $question['correct_option'],
+            'explanation'    => $question['explanation'],
+            'equivalent_id'  => $equivId,
+        ]);
+
+        return redirect()->to(base_url("teacher/questions/edit/{$newId}"))
+                         ->with('success', "Đã nhân bản câu hỏi thành công (Cùng nhóm tương đương #{$equivId})! Bạn có thể chỉnh sửa ngay.");
     }
 
     public function deleteQuestion(int $id)
@@ -538,7 +616,7 @@ class Teacher extends BaseController
                     continue;
                 }
 
-                $this->questionModel->insert([
+                $insertedId = $this->questionModel->insert([
                     'creator_id'     => $teacherId,
                     'topic_id'       => $topicId,
                     'content'        => $q['content'],
@@ -549,6 +627,9 @@ class Teacher extends BaseController
                     'correct_option' => $q['answer'],
                     'explanation'    => '',
                 ]);
+                if ($insertedId) {
+                    $this->questionModel->update($insertedId, ['equivalent_id' => $insertedId]);
+                }
                 $inserted++;
             }
             $db->transComplete();

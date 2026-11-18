@@ -46,6 +46,23 @@
                 </div>
             </div>
 
+            <!-- Mã nhóm tương đương (equivalent_id) -->
+            <div class="bg-purple-50/50 border border-purple-200 rounded-xl p-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div class="flex-grow">
+                        <label class="block text-sm font-semibold text-purple-900 mb-0.5">
+                            <i class="fa-solid fa-layer-group text-purple-600 me-1"></i> Mã nhóm tương đương (equivalent_id)
+                        </label>
+                        <p class="text-xs text-purple-700 mb-0">
+                            Các câu hỏi có cùng mã nhóm sẽ thuộc cùng một nhóm tương đương. Trong một đề thi, hệ thống sẽ <strong>chỉ chọn ngẫu nhiên tối đa 1 câu</strong> trong nhóm này.
+                        </p>
+                    </div>
+                    <div class="w-full sm:w-56 shrink-0">
+                        <input type="number" name="equivalent_id" min="1" class="w-full px-4 py-2 rounded-xl border border-purple-300 focus:ring-2 focus:ring-purple-500 bg-white text-sm font-bold text-purple-800" value="<?= esc($question['equivalent_id'] ?? old('equivalent_id')) ?>" placeholder="<?= $isEdit ? 'Mã hiện tại: #' . ($question['equivalent_id'] ?? $question['id']) : 'Để trống = nhận ID câu này' ?>">
+                    </div>
+                </div>
+            </div>
+
             <!-- Question Content Rich Text Editor (Quill.js) -->
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">

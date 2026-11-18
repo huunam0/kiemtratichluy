@@ -222,13 +222,24 @@
                                             data-json="<?= esc(json_encode($q), 'attr') ?>"
                                         >
                                     </td>
-                                    <td class="font-mono text-gray-400">#<?= $q['id'] ?></td>
+                                    <?php $eqId = !empty($q['equivalent_id']) ? $q['equivalent_id'] : $q['id']; ?>
+                                    <td class="font-mono text-gray-400">
+                                        <div>#<?= $q['id'] ?></div>
+                                        <div class="mt-1">
+                                            <span class="badge bg-purple-50 text-purple-700 border border-purple-200 text-xs font-normal" title="Mã nhóm câu hỏi tương đương #<?= $eqId ?>">
+                                                <i class="fa-solid fa-layer-group me-0.5"></i>#<?= $eqId ?>
+                                            </span>
+                                        </div>
+                                    </td>
                                     <td style="max-width: 460px;">
                                         <div class="font-medium text-gray-900 line-clamp-2"><?= $rawContent ?></div>
                                         <div class="mt-1 d-flex gap-1 flex-wrap">
                                             <span class="badge bg-gray-100 text-gray-600 text-xs font-normal"><?= esc($q['subject_name']) ?></span>
                                             <span class="badge bg-indigo-50 text-indigo-700 text-xs font-normal">Chủ đề: <?= esc($q['topic_name']) ?></span>
                                             <span class="badge bg-gray-100 text-gray-600 text-xs font-normal">Khối <?= esc($q['grade_level']) ?></span>
+                                            <span class="badge bg-purple-50 text-purple-700 border border-purple-100 text-xs font-normal">
+                                                <i class="fa-solid fa-layer-group me-1"></i>Nhóm #<?= $eqId ?>
+                                            </span>
                                         </div>
                                     </td>
                                     <td>
@@ -247,16 +258,20 @@
                                             <?= $isCreator ? ' <span class="badge bg-indigo-100 text-indigo-600 text-xs">Tôi</span>' : '' ?>
                                         </span>
                                     </td>
-                                    <td class="text-end pe-6">
+                                    <td class="text-end pe-6 text-nowrap">
+                                        <a href="<?= base_url("teacher/questions/preview/{$q['id']}") ?>" class="btn btn-outline-indigo btn-sm rounded-lg me-1" title="Xem chi tiết câu hỏi">
+                                            <i class="fa-solid fa-eye"></i> Xem
+                                        </a>
+                                        <a href="<?= base_url("teacher/questions/duplicate/{$q['id']}") ?>" class="btn btn-outline-success btn-sm rounded-lg me-1" title="Nhân bản câu hỏi cùng nhóm tương đương" onclick="return confirm('Bạn có muốn nhân bản câu hỏi này?');">
+                                            <i class="fa-solid fa-clone"></i>
+                                        </a>
                                         <?php if ($isCreator): ?>
-                                            <a href="<?= base_url("teacher/questions/edit/{$q['id']}") ?>" class="btn btn-outline-secondary btn-sm rounded-lg me-1">
-                                                <i class="fa-solid fa-pen-to-square"></i> Sửa
+                                            <a href="<?= base_url("teacher/questions/edit/{$q['id']}") ?>" class="btn btn-outline-secondary btn-sm rounded-lg me-1" title="Sửa câu hỏi">
+                                                <i class="fa-solid fa-pen-to-square"></i>
                                             </a>
-                                            <a href="<?= base_url("teacher/questions/delete/{$q['id']}") ?>" class="btn btn-outline-danger btn-sm rounded-lg" onclick="return confirm('Bạn có chắc muốn xoá câu hỏi này?')">
+                                            <a href="<?= base_url("teacher/questions/delete/{$q['id']}") ?>" class="btn btn-outline-danger btn-sm rounded-lg" onclick="return confirm('Bạn có chắc muốn xoá câu hỏi này?')" title="Xoá câu hỏi">
                                                 <i class="fa-solid fa-trash"></i>
                                             </a>
-                                        <?php else: ?>
-                                            <span class="text-xs text-gray-400 italic">Chỉ xem</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>

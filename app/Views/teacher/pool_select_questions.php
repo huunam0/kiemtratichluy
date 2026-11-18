@@ -101,14 +101,27 @@
                             </tr>
                         <?php else: ?>
                             <?php foreach ($questions as $q): ?>
+                                <?php $eqId = !empty($q['equivalent_id']) ? $q['equivalent_id'] : $q['id']; ?>
                                 <tr>
                                     <td class="ps-6">
                                         <input type="checkbox" name="question_ids[]" value="<?= $q['id'] ?>" class="form-check-input q-checkbox" data-json="<?= esc(json_encode($q), 'attr') ?>">
                                     </td>
-                                    <td class="font-mono text-gray-400">#<?= $q['id'] ?></td>
+                                    <td class="font-mono text-gray-400">
+                                        <div>#<?= $q['id'] ?></div>
+                                        <div class="mt-0.5">
+                                            <span class="badge bg-purple-50 text-purple-700 border border-purple-200 text-xs font-normal" title="Mã nhóm câu hỏi tương đương #<?= $eqId ?>">
+                                                <i class="fa-solid fa-layer-group me-0.5"></i>#<?= $eqId ?>
+                                            </span>
+                                        </div>
+                                    </td>
                                     <td>
                                         <div class="font-medium text-gray-900 line-clamp-2 max-w-xl">
                                             <?= format_preview_content($q['content']) ?>
+                                        </div>
+                                        <div class="mt-1">
+                                            <span class="badge bg-purple-50 text-purple-700 border border-purple-100 text-xs font-normal">
+                                                <i class="fa-solid fa-layer-group me-1"></i>Nhóm #<?= $eqId ?>
+                                            </span>
                                         </div>
                                     </td>
                                     <td>

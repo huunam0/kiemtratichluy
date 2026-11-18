@@ -15,7 +15,7 @@ class QuestionModel extends Model
     protected $allowedFields    = [
         'creator_id', 'topic_id', 'content', 
         'option_a', 'option_b', 'option_c', 'option_d', 
-        'correct_option', 'explanation'
+        'correct_option', 'explanation', 'equivalent_id'
     ];
 
     // Dates
@@ -23,6 +23,21 @@ class QuestionModel extends Model
     protected $dateFormat    = 'datetime';
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
+
+    // Callbacks
+    protected $afterInsert = ['setEquivalentIdIfEmpty'];
+
+    protected function setEquivalentIdIfEmpty(array $data)
+    {
+        if (!empty($data['id'])) {
+            $id = (int)$data['id'];
+            $row = $this->select('id, equivalent_id')->find($id);
+            if ($row && empty($row['equivalent_id'])) {
+                $this->update($id, ['equivalent_id' => $id]);
+            }
+        }
+        return $data;
+    }
 
     public function getAllGlobalQuestions(?int $subjectId = null, ?int $gradeLevel = null, ?int $topicId = null)
     {
