@@ -55,12 +55,24 @@
                         <label class="form-label text-xs fw-semibold text-gray-600 mb-1">
                             <i class="fa-solid fa-keyboard me-1 text-indigo-500"></i> Câu trả lời của bạn:
                         </label>
+                        <?php 
+                            $hasPrefill = !empty($q['prefilled_text']); 
+                            $val = $userAnswers[$q['question_id']] ?? ($hasPrefill ? $q['prefilled_text'] : '');
+                        ?>
                         <input type="text" 
                                name="answers[<?= $q['question_id'] ?>]" 
                                class="form-control form-control-lg rounded-xl answer-input font-medium" 
                                placeholder="Nhập câu trả lời ngắn vào đây..." 
+                               value="<?= esc($val) ?>"
+                               data-has-template="<?= $hasPrefill ? '1' : '0' ?>"
                                autocomplete="off" 
                                oninput="updateAnsweredCount()">
+                        <?php if ($hasPrefill): ?>
+                            <div class="mt-2 flex items-center gap-2 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                                <i class="fa-solid fa-circle-info text-amber-500 fa-lg"></i>
+                                <span>Ghi chú: Câu hỏi này có phần điền sẵn, bạn chỉ cần sửa chỗ có dấu <strong>"..."</strong> để hoàn thành câu trả lời.</span>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -122,7 +134,9 @@
         const inputs = document.querySelectorAll('.answer-input');
         let filled = 0;
         inputs.forEach(input => {
-            if (input.value.trim() !== '') {
+            const val = input.value.trim();
+            const hasUneditedDots = (input.dataset.hasTemplate === '1') && val.includes('...');
+            if (val !== '' && !hasUneditedDots) {
                 filled++;
             }
         });
@@ -134,12 +148,22 @@
         const total = <?= count($questions) ?>;
         const inputs = document.querySelectorAll('.answer-input');
         let filled = 0;
+        let hasIncomplete = false;
         inputs.forEach(input => {
-            if (input.value.trim() !== '') filled++;
+            const val = input.value.trim();
+            const hasUneditedDots = (input.dataset.hasTemplate === '1') && val.includes('...');
+            if (val !== '' && !hasUneditedDots) {
+                filled++;
+            }
+            if (hasUneditedDots) {
+                hasIncomplete = true;
+            }
         });
 
         let msg = 'Bạn có chắc chắn muốn nộp bài?';
-        if (filled < total) {
+        if (hasIncomplete) {
+            msg = `Có câu hỏi chứa dấu "..." chưa được hoàn thiện. Bạn có chắc chắn muốn nộp bài ngay?`;
+        } else if (filled < total) {
             msg = `Bạn mới trả lời ${filled}/${total} câu hỏi. Bạn có chắc chắn muốn nộp bài ngay?`;
         }
         

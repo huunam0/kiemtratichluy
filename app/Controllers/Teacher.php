@@ -2053,14 +2053,16 @@ class Teacher extends BaseController
             }
 
             $equivalentId = (int)$this->request->getPost('equivalent_id');
+            $prefilledText = trim((string)$this->request->getPost('prefilled_text'));
 
             $qId = $this->shortAnswerQuestionModel->insert([
-                'teacher_id'    => $teacherId,
-                'school_id'     => $schoolId,
-                'topic_id'      => $topicId,
-                'title'         => $title,
-                'question_text' => $questionText,
-                'equivalent_id' => $equivalentId > 0 ? $equivalentId : null,
+                'teacher_id'     => $teacherId,
+                'school_id'      => $schoolId,
+                'topic_id'       => $topicId,
+                'title'          => $title,
+                'question_text'  => $questionText,
+                'prefilled_text' => $prefilledText !== '' ? $prefilledText : null,
+                'equivalent_id'  => $equivalentId > 0 ? $equivalentId : null,
             ]);
 
             if ($equivalentId <= 0) {
@@ -2126,21 +2128,23 @@ class Teacher extends BaseController
 
                 return redirect()->to(base_url("teacher/short-answer/questions/edit/{$id}"))->with('success', 'Đã thêm đáp án đúng mới!');
             } else {
-                $title        = trim((string)$this->request->getPost('title'));
-                $topicId      = (int)$this->request->getPost('topic_id');
-                $questionText = trim((string)$this->request->getPost('question_text'));
-                $equivInput   = $this->request->getPost('equivalent_id');
-                $equivalentId = ($equivInput !== null && $equivInput !== '' && (int)$equivInput > 0) ? (int)$equivInput : $id;
+                $title         = trim((string)$this->request->getPost('title'));
+                $topicId       = (int)$this->request->getPost('topic_id');
+                $questionText  = trim((string)$this->request->getPost('question_text'));
+                $prefilledText = trim((string)$this->request->getPost('prefilled_text'));
+                $equivInput    = $this->request->getPost('equivalent_id');
+                $equivalentId  = ($equivInput !== null && $equivInput !== '' && (int)$equivInput > 0) ? (int)$equivInput : $id;
 
                 if (empty($title) || empty($questionText)) {
                     return redirect()->back()->with('error', 'Vui lòng nhập Tên và Nội dung câu hỏi.');
                 }
 
                 $this->shortAnswerQuestionModel->update($id, [
-                    'title'         => $title,
-                    'topic_id'      => $topicId > 0 ? $topicId : $question['topic_id'],
-                    'question_text' => $questionText,
-                    'equivalent_id' => $equivalentId,
+                    'title'          => $title,
+                    'topic_id'       => $topicId > 0 ? $topicId : $question['topic_id'],
+                    'question_text'  => $questionText,
+                    'prefilled_text' => $prefilledText !== '' ? $prefilledText : null,
+                    'equivalent_id'  => $equivalentId,
                 ]);
 
                 // Update existing answers if submitted
@@ -2220,12 +2224,13 @@ class Teacher extends BaseController
         $newTitle = trim($question['title']) . ' (x2)';
 
         $newId = $this->shortAnswerQuestionModel->insert([
-            'teacher_id'    => $teacherId,
-            'school_id'     => $question['school_id'],
-            'topic_id'      => $question['topic_id'],
-            'title'         => $newTitle,
-            'question_text' => $question['question_text'],
-            'equivalent_id' => $equivId,
+            'teacher_id'     => $teacherId,
+            'school_id'      => $question['school_id'],
+            'topic_id'       => $question['topic_id'],
+            'title'          => $newTitle,
+            'question_text'  => $question['question_text'],
+            'prefilled_text' => $question['prefilled_text'] ?? null,
+            'equivalent_id'  => $equivId,
         ]);
 
         $answers = $this->shortAnswerAcceptedModel->getAnswersByQuestion($id);

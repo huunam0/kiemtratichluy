@@ -12,7 +12,7 @@ class ShortAnswerQuestionModel extends Model
     protected $returnType       = 'array';
     protected $protectFields    = true;
     protected $allowedFields    = [
-        'teacher_id', 'school_id', 'topic_id', 'title', 'question_text', 'equivalent_id',
+        'teacher_id', 'school_id', 'topic_id', 'title', 'question_text', 'prefilled_text', 'equivalent_id',
     ];
 
     protected $useTimestamps = true;

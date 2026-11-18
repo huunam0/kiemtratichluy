@@ -47,10 +47,15 @@
                                 <td class="fw-bold text-gray-900">
                                     <div><?= esc($q['title']) ?></div>
                                     <?php $eqId = !empty($q['equivalent_id']) ? $q['equivalent_id'] : $q['id']; ?>
-                                    <div class="mt-1">
+                                    <div class="mt-1 d-flex flex-wrap items-center gap-1">
                                         <span class="badge bg-purple-50 text-purple-700 border border-purple-200 text-xs font-normal" title="Mã nhóm câu hỏi tương đương #<?= $eqId ?>">
                                             <i class="fa-solid fa-layer-group me-1"></i> Nhóm #<?= $eqId ?>
                                         </span>
+                                        <?php if (!empty($q['prefilled_text'])): ?>
+                                            <span class="badge bg-amber-50 text-amber-700 border border-amber-200 text-xs font-normal" title="Điền sẵn: <?= esc($q['prefilled_text']) ?>">
+                                                <i class="fa-solid fa-pen-to-square me-1"></i> Điền sẵn
+                                            </span>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                                 <td class="text-gray-700 text-sm max-w-xs truncate" title="<?= esc($q['question_text']) ?>">

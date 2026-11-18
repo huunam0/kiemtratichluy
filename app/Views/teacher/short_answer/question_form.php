@@ -71,6 +71,18 @@
                     <textarea name="question_text" class="form-control rounded-xl" rows="4" placeholder="VD: Ba cộng Năm bằng mấy?" required><?= esc($question['question_text'] ?? old('question_text')) ?></textarea>
                 </div>
 
+                <div class="col-12 mt-3">
+                    <label class="form-label fw-semibold text-gray-700">
+                        <i class="fa-solid fa-pen-to-square text-indigo-500 me-1"></i> Phần câu trả lời điền sẵn (Tùy chọn)
+                    </label>
+                    <input type="text" name="prefilled_text" class="form-control rounded-xl font-medium" 
+                           value="<?= esc($question['prefilled_text'] ?? old('prefilled_text')) ?>" 
+                           placeholder="VD: ... Nội (Học sinh sẽ sửa chỗ dấu 3 chấm để hoàn thành câu)">
+                    <div class="form-text text-xs text-gray-500">
+                        Nếu nhập, khi học sinh làm bài ô trả lời sẽ được điền sẵn nội dung này kèm ghi chú nhắc học sinh sửa chỗ có dấu <code>"..."</code>. Để trống nếu muốn học sinh tự gõ từ đầu.
+                    </div>
+                </div>
+
                 <?php if (!$question): ?>
                     <!-- KHI TẠO MỚI: DANH SÁCH ĐÁP ÁN ĐÚNG BAN ĐẦU -->
                     <div class="col-12 mt-4">

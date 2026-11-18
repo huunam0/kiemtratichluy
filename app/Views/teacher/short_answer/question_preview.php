@@ -64,6 +64,11 @@
                         Chủ đề: <?= esc($question['topic_name']) ?>
                     </span>
                 <?php endif; ?>
+                <?php if (!empty($question['prefilled_text'])): ?>
+                    <span class="badge bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-lg text-xs font-semibold" title="Phần điền sẵn">
+                        <i class="fa-solid fa-pen-to-square me-1 text-amber-600"></i> Điền sẵn: <code><?= esc($question['prefilled_text']) ?></code>
+                    </span>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -86,11 +91,17 @@
                         <i class="fa-solid fa-keyboard me-1 text-indigo-500"></i> Thử gõ câu trả lời vào đây:
                     </label>
                     <div class="input-group">
-                        <input type="text" id="testAnswerInput" class="form-control form-control-lg rounded-start-xl font-medium" placeholder="Gõ thử câu trả lời để kiểm tra so khớp...">
+                        <input type="text" id="testAnswerInput" class="form-control form-control-lg rounded-start-xl font-medium" placeholder="Gõ thử câu trả lời để kiểm tra so khớp..." value="<?= esc($question['prefilled_text'] ?? '') ?>">
                         <button type="button" class="btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-end-xl px-4" onclick="testCheckAnswer()">
                             <i class="fa-solid fa-vial-circle-check me-1"></i> So khớp thử
                         </button>
                     </div>
+                    <?php if (!empty($question['prefilled_text'])): ?>
+                        <div class="mt-2 flex items-center gap-2 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                            <i class="fa-solid fa-circle-info text-amber-500 fa-lg"></i>
+                            <span>Ghi chú cho học sinh: Câu hỏi này có phần điền sẵn, bạn chỉ cần sửa chỗ có dấu <strong>"..."</strong> để hoàn thành câu trả lời.</span>
+                        </div>
+                    <?php endif; ?>
                     <div id="testAnswerResult" class="mt-2 text-sm font-semibold d-none"></div>
                 </div>
             </div>
