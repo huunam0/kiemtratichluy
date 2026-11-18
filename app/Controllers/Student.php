@@ -234,6 +234,10 @@ class Student extends BaseController
             $part = $this->participantModel->find($partId);
         }
 
+        $this->response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
+        $this->response->setHeader('Pragma', 'no-cache');
+        $this->response->setHeader('Expires', '0');
+
         return view('student/waiting_room', [
             'session'     => $session,
             'participant' => $part,
@@ -333,7 +337,7 @@ class Student extends BaseController
             $part['score_total'] = count($poolQuestions);
         }
 
-        // Format questions with shuffled display options for JS
+        // Format questions with shuffled display options for JS (pre-formatted on server for instant safe rendering)
         $questionsData = [];
         foreach ($existingQuestions as $q) {
             $mapping = json_decode($q['option_mapping'], true);
@@ -343,7 +347,7 @@ class Student extends BaseController
                 $colName = 'option_' . strtolower($origKey);
                 $displayOptions[] = [
                     'label'   => $displayLabel,
-                    'content' => $q[$colName],
+                    'content' => format_option_content($q[$colName]),
                 ];
             }
 
@@ -351,7 +355,7 @@ class Student extends BaseController
                 'id'              => (int)$q['id'], // sqa record ID
                 'question_id'     => (int)$q['question_id'],
                 'question_order'  => (int)$q['question_order'],
-                'content'         => $q['content'],
+                'content'         => format_question_content($q['content']),
                 'display_options' => $displayOptions,
                 'selected_option' => $q['selected_option'],
             ];
@@ -366,6 +370,11 @@ class Student extends BaseController
             $elapsed = time() - strtotime($part['started_at']);
         }
         $remainingSeconds = max(0, $totalSeconds - $elapsed);
+
+        // Prevent mobile browser caching of exam taking page
+        $this->response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
+        $this->response->setHeader('Pragma', 'no-cache');
+        $this->response->setHeader('Expires', '0');
 
         return view('student/exam_taking', [
             'session'           => $session,
@@ -522,15 +531,27 @@ class Student extends BaseController
         $mockData = [];
         foreach ($questions as $order => $q) {
             $shuffled = $this->shuffleService->generateDynamicShuffledOptions($q);
+            $formattedDisplayOptions = [];
+            foreach ($shuffled['display_options'] as $opt) {
+                $formattedDisplayOptions[] = [
+                    'label'   => $opt['label'],
+                    'content' => format_option_content($opt['content']),
+                ];
+            }
             $mockData[] = [
                 'order'           => $order + 1,
-                'content'         => $q['content'],
-                'display_options' => $shuffled['display_options'],
+                'content'         => format_question_content($q['content']),
+                'display_options' => $formattedDisplayOptions,
                 'option_mapping'  => $shuffled['option_mapping'],
                 'correct_option'  => $q['correct_option'],
                 'explanation'     => $q['explanation'],
             ];
         }
+
+        // Prevent mobile browser caching
+        $this->response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
+        $this->response->setHeader('Pragma', 'no-cache');
+        $this->response->setHeader('Expires', '0');
 
         return view('student/mock_test', [
             'test'           => $test,

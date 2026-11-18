@@ -104,7 +104,7 @@
                             <?= $optKey ?>
                         </span>
                         <div class="flex-grow pt-1 text-sm font-medium">
-                            <?= esc($optVal) ?>
+                            <?= format_option_content($optVal) ?>
                         </div>
                         <?php if ($isCorrect): ?>
                             <span class="badge bg-emerald-600 text-white text-xs px-2.5 py-1 rounded-md shrink-0">

@@ -69,9 +69,13 @@ let remainingSeconds = <?= $remaining_seconds ?>;
 let currentIndex = 0;
 let answers = {}; // Maps sqa_id -> selected_option
 
-// Use global helper functions from main layout (supports Quill, plain-text tags, and strips [hide])
-const formatQuestionContent = window.formatQuestionContent || function(c) { return c; };
-const formatOptionContent = window.formatOptionContent || function(c) { return c; };
+// Global helper functions from main layout (safe fallback if ever undefined)
+function formatQuestionContent(c) {
+    return (typeof window.formatQuestionContent === 'function') ? window.formatQuestionContent(c) : c;
+}
+function formatOptionContent(c) {
+    return (typeof window.formatOptionContent === 'function') ? window.formatOptionContent(c) : c;
+}
 
 // Initialize user selected answers if any
 questions.forEach(q => {

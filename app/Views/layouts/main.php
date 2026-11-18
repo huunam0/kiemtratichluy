@@ -14,6 +14,9 @@
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <!-- Highlight.js CSS for Code Snippets -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <style>
         body {
             font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -32,6 +35,71 @@
             font-size: 1rem;
         }
     </style>
+    <!-- Core Safe HTML Formatting Helpers (loaded before view bodies) -->
+    <script>
+    window.decodeHtmlEntities = function(str) {
+        if (!str || typeof str !== 'string' || !str.includes('&')) return str || '';
+        const txt = document.createElement('textarea');
+        txt.innerHTML = str;
+        return txt.value;
+    };
+
+    window.escapeHtml = function(str) {
+        if (!str || typeof str !== 'string') return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+
+    window.formatOptionContent = function(content) {
+        if (!content || typeof content !== 'string') return '';
+        content = content.replace(/\[hide\][\s\S]*?\[\/hide\]\s*/gi, '').replace(/\[\/?hide\]/gi, '').trim();
+        if (!content) return '';
+        if (/^\s*<img\s+[^>]*src=[^>]*>\s*$/i.test(content)) {
+            return content;
+        }
+        const decoded = window.decodeHtmlEntities(content);
+        return window.escapeHtml(decoded);
+    };
+
+    window.formatQuestionContent = function(content) {
+        if (!content || typeof content !== 'string') return '';
+
+        // 1. Strip [hide]...[/hide] tags
+        content = content.replace(/\[hide\][\s\S]*?\[\/hide\]\s*/gi, '').replace(/\[\/?hide\]/gi, '').trim();
+        if (!content) return '';
+
+        // 2. Check if Quill Rich-Text HTML (starts with block tag and ends with closing block tag)
+        const isQuillHtml = /^<(p|h[1-6]|pre|blockquote|ul|ol|table)\b/i.test(content) &&
+                            /<\/(p|h[1-6]|pre|blockquote|ul|ol|table)>\s*$/i.test(content);
+
+        if (isQuillHtml) {
+            return content;
+        }
+
+        // 3. Plain text / Aiken questions:
+        const decoded = window.decodeHtmlEntities(content);
+
+        // Preserve <img> tags if present
+        if (/<img\s+[^>]*src=[^>]*>/i.test(decoded)) {
+            const images = [];
+            const withPlaceholders = decoded.replace(/<img\s+[^>]*src=[^>]*>/gi, function(match) {
+                images.push(match);
+                return '___IMG_PLACEHOLDER_' + (images.length - 1) + '___';
+            });
+            let escaped = window.escapeHtml(withPlaceholders).replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
+            images.forEach((img, idx) => {
+                escaped = escaped.replace('___IMG_PLACEHOLDER_' + idx + '___', img);
+            });
+            return escaped;
+        }
+
+        return window.escapeHtml(decoded).replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
+    };
+    </script>
 </head>
 <body class="flex flex-col min-h-screen">
 
@@ -112,69 +180,5 @@
     <!-- Quill.js JS -->
     <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
     <!-- Highlight.js -->
-    <script>
-    window.decodeHtmlEntities = function(str) {
-        if (!str || typeof str !== 'string' || !str.includes('&')) return str || '';
-        const txt = document.createElement('textarea');
-        txt.innerHTML = str;
-        return txt.value;
-    };
-
-    window.escapeHtml = function(str) {
-        if (!str || typeof str !== 'string') return '';
-        return str
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    };
-
-    window.formatOptionContent = function(content) {
-        if (!content || typeof content !== 'string') return '';
-        content = content.replace(/\[hide\][\s\S]*?\[\/hide\]\s*/gi, '').replace(/\[\/?hide\]/gi, '').trim();
-        if (!content) return '';
-        if (/^\s*<img\s+[^>]*src=[^>]*>\s*$/i.test(content)) {
-            return content;
-        }
-        const decoded = window.decodeHtmlEntities(content);
-        return window.escapeHtml(decoded);
-    };
-
-    window.formatQuestionContent = function(content) {
-        if (!content || typeof content !== 'string') return '';
-
-        // 1. Strip [hide]...[/hide] tags
-        content = content.replace(/\[hide\][\s\S]*?\[\/hide\]\s*/gi, '').replace(/\[\/?hide\]/gi, '').trim();
-        if (!content) return '';
-
-        // 2. Check if Quill Rich-Text HTML (starts with block tag and ends with closing block tag)
-        const isQuillHtml = /^<(p|h[1-6]|pre|blockquote|ul|ol|table)\b/i.test(content) &&
-                            /<\/(p|h[1-6]|pre|blockquote|ul|ol|table)>\s*$/i.test(content);
-
-        if (isQuillHtml) {
-            return content;
-        }
-
-        // 3. Plain text / Aiken questions:
-        const decoded = window.decodeHtmlEntities(content);
-
-        // Preserve <img> tags if present
-        if (/<img\s+[^>]*src=[^>]*>/i.test(decoded)) {
-            const images = [];
-            const withPlaceholders = decoded.replace(/<img\s+[^>]*src=[^>]*>/gi, function(match) {
-                images.push(match);
-                return '___IMG_PLACEHOLDER_' + (images.length - 1) + '___';
-            });
-            let escaped = window.escapeHtml(withPlaceholders).replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
-            images.forEach((img, idx) => {
-                escaped = escaped.replace('___IMG_PLACEHOLDER_' + idx + '___', img);
-            });
-            return escaped;
-        }
-
-        return window.escapeHtml(decoded).replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
-    };
-    </script>
 </body>
 </html>
