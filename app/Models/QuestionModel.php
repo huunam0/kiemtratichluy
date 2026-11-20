@@ -31,9 +31,11 @@ class QuestionModel extends Model
     {
         if (!empty($data['id'])) {
             $id = (int)$data['id'];
-            $row = $this->select('id, equivalent_id')->find($id);
+            // Use a fresh DB builder to avoid dirty state from previous chained where() calls
+            $db  = \Config\Database::connect();
+            $row = $db->table($this->table)->select('id, equivalent_id')->where('id', $id)->get()->getRowArray();
             if ($row && empty($row['equivalent_id'])) {
-                $this->update($id, ['equivalent_id' => $id]);
+                $db->table($this->table)->where('id', $id)->update(['equivalent_id' => $id]);
             }
         }
         return $data;

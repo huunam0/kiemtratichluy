@@ -628,9 +628,9 @@ class Teacher extends BaseController
                     'explanation'    => '',
                 ]);
                 if ($insertedId) {
-                    $this->questionModel->update($insertedId, ['equivalent_id' => $insertedId]);
+                    $inserted++;
                 }
-                $inserted++;
+
             }
             $db->transComplete();
 
