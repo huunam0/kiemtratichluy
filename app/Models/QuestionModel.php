@@ -31,12 +31,12 @@ class QuestionModel extends Model
     {
         if (!empty($data['id'])) {
             $id = (int)$data['id'];
-            // Use a fresh DB builder to avoid dirty state from previous chained where() calls
-            $db  = \Config\Database::connect();
-            $row = $db->table($this->table)->select('id, equivalent_id')->where('id', $id)->get()->getRowArray();
-            if ($row && empty($row['equivalent_id'])) {
-                $db->table($this->table)->where('id', $id)->update(['equivalent_id' => $id]);
-            }
+            // After insert, equivalent_id is always empty — update directly without SELECT
+            \Config\Database::connect()
+                ->table($this->table)
+                ->where('id', $id)
+                ->where('equivalent_id IS NULL', null, false)
+                ->update(['equivalent_id' => $id]);
         }
         return $data;
     }
