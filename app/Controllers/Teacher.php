@@ -601,8 +601,9 @@ class Teacher extends BaseController
                 return redirect()->back()->with('error', 'Không tìm thấy câu hỏi hợp lệ trong văn bản đã nhập.' . $hint)->withInput();
             }
 
-            $inserted = 0;
-            $skipped  = 0;
+            $inserted    = 0;
+            $skipped     = 0;
+            $insertedIds = [];
             $db = \Config\Database::connect();
             $db->transStart();
             foreach ($parsed['questions'] as $q) {
@@ -628,11 +629,20 @@ class Teacher extends BaseController
                     'explanation'    => '',
                 ]);
                 if ($insertedId) {
+                    $insertedIds[] = (int)$insertedId;
                     $inserted++;
                 }
-
             }
             $db->transComplete();
+
+            // Update equivalent_id AFTER transaction to avoid silent rollback
+            if (!empty($insertedIds)) {
+                foreach ($insertedIds as $qid) {
+                    $db->table('questions')
+                       ->where('id', $qid)
+                       ->update(['equivalent_id' => $qid]);
+                }
+            }
 
             $parseErrors = count($parsed['errors']);
             $msg = "Import Aiken thành công: đã thêm {$inserted} câu hỏi";

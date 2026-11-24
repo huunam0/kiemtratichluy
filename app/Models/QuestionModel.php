@@ -25,7 +25,8 @@ class QuestionModel extends Model
     protected $updatedField  = 'updated_at';
 
     // Callbacks
-    protected $afterInsert = ['setEquivalentIdIfEmpty'];
+    protected $afterInsert = [];
+
 
     protected function setEquivalentIdIfEmpty(array $data)
     {
