@@ -175,7 +175,7 @@
                             <th style="width: 50px;">ID</th>
                             <th>Nội Dung Câu Hỏi</th>
                             <th>Số Đáp Án</th>
-                            <th>Đáp Án Đúng</th>
+                            <th>Tỉ Lệ Chọn Đúng</th>
                             <th>Tác Giả</th>
                             <th class="text-end pe-6">Hành Động</th>
                         </tr>
@@ -248,8 +248,19 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-emerald-600 text-white font-bold text-sm px-2.5 py-1">
-                                            <?= esc($q['correct_option']) ?>
+                                        <?php
+                                            $picked = $q['picked'] ?? 0;
+                                            $correct = $q['correct'] ?? 0;
+                                            $rate = $picked > 0 ? round(($correct / $picked) * 100) : 0;
+                                            $badgeClass = 'bg-gray-100 text-gray-400 border border-gray-200';
+                                            if ($picked > 0) {
+                                                if ($rate >= 70) $badgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                                                elseif ($rate >= 40) $badgeClass = 'bg-blue-50 text-blue-700 border border-blue-200';
+                                                else $badgeClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+                                            }
+                                        ?>
+                                        <span class="badge <?= $badgeClass ?> font-bold text-sm px-2.5 py-1" title="<?= $picked > 0 ? "Tỉ lệ đúng: {$rate}% ({$correct}/{$picked} lượt làm bài)" : "Chưa có lượt làm bài nào" ?> | Đáp án gốc: <?= esc($q['correct_option']) ?>">
+                                            <?= "{$correct}/{$picked}" ?>
                                         </span>
                                     </td>
                                     <td>

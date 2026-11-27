@@ -10,6 +10,7 @@ use App\Models\TestModel;
 use App\Models\TestQuestionPoolModel;
 use App\Models\TestSessionModel;
 use App\Models\SessionParticipantModel;
+use App\Models\SessionQuestionAnswerModel;
 use App\Models\AccumulatedScoreModel;
 use App\Models\MarkdownQuizModel;
 use App\Models\MarkdownQuizResultModel;
@@ -39,6 +40,7 @@ class Teacher extends BaseController
     protected $poolModel;
     protected $sessionModel;
     protected $participantModel;
+    protected $sqaModel;
     protected $accumulatedModel;
     protected $markdownQuizModel;
     protected $markdownResultModel;
@@ -67,6 +69,7 @@ class Teacher extends BaseController
         $this->poolModel           = new TestQuestionPoolModel();
         $this->sessionModel        = new TestSessionModel();
         $this->participantModel    = new SessionParticipantModel();
+        $this->sqaModel            = new SessionQuestionAnswerModel();
         $this->accumulatedModel    = new AccumulatedScoreModel();
         $this->markdownQuizModel   = new MarkdownQuizModel();
         $this->markdownResultModel = new MarkdownQuizResultModel();
@@ -309,6 +312,17 @@ class Teacher extends BaseController
             $keyword    ?: null
         );
 
+        $qIds = array_column($questions, 'id');
+        if (!empty($qIds)) {
+            $stats = $this->sqaModel->getQuestionsStats($qIds);
+            foreach ($questions as &$q) {
+                $qid = (int)$q['id'];
+                $q['picked']  = $stats[$qid]['picked'] ?? 0;
+                $q['correct'] = $stats[$qid]['correct'] ?? 0;
+            }
+            unset($q);
+        }
+
         $subjectModel = new \App\Models\SubjectModel();
         $subjects = $subjectModel->orderBy('name', 'ASC')->findAll();
 
@@ -447,6 +461,17 @@ class Teacher extends BaseController
         $creator = $this->userModel->find($question['creator_id']);
         $question['creator_name'] = $creator['full_name'] ?? 'Giáo viên';
 
+        $fromTestId = (int)$this->request->getGet('from_test') ?: null;
+        $fromTest   = $fromTestId ? $this->testModel->find($fromTestId) : null;
+
+        // Lấy thống kê số lần mỗi phương án được chọn
+        $optStats = $this->sqaModel->getQuestionsOptionStats([$id], $fromTestId);
+        $questionOptionStats = $optStats[$id] ?? null;
+
+        // Lấy thống kê tỉ lệ chọn đúng tổng thể
+        $qStats = $this->sqaModel->getQuestionsStats([$id], $fromTestId);
+        $questionStats = $qStats[$id] ?? null;
+
         // Lấy danh sách các câu hỏi khác cùng nhóm tương đương
         $equivId = !empty($question['equivalent_id']) ? (int)$question['equivalent_id'] : (int)$question['id'];
         $equivalentQuestions = $this->questionModel
@@ -461,6 +486,10 @@ class Teacher extends BaseController
             'equivalentQuestions' => $equivalentQuestions,
             'isCreator'           => ((int)$question['creator_id'] === (int)$teacherId),
             'teacher_id'          => $teacherId,
+            'fromTestId'          => $fromTestId,
+            'fromTest'            => $fromTest,
+            'optionStats'         => $questionOptionStats,
+            'questionStats'       => $questionStats,
         ]);
     }
 
@@ -849,6 +878,20 @@ class Teacher extends BaseController
 
         $poolQuestions   = $this->poolModel->getQuestionsInPool($testId);
         $poolIds = array_column($poolQuestions, 'id');
+
+        if (!empty($poolIds)) {
+            $stats       = $this->sqaModel->getQuestionsStats($poolIds, $testId);
+            $optionStats = $this->sqaModel->getQuestionsOptionStats($poolIds, $testId);
+            foreach ($poolQuestions as &$q) {
+                $qid = (int)$q['id'];
+                $q['picked']       = $stats[$qid]['picked'] ?? 0;
+                $q['correct']      = $stats[$qid]['correct'] ?? 0;
+                $q['test_picked']  = $stats[$qid]['test_picked'] ?? 0;
+                $q['test_correct'] = $stats[$qid]['test_correct'] ?? 0;
+                $q['option_stats'] = $optionStats[$qid] ?? null;
+            }
+            unset($q);
+        }
 
         return view('teacher/pool_manage', [
             'test'             => $test,
@@ -1437,6 +1480,13 @@ class Teacher extends BaseController
             return $this->response->setJSON(['status' => 'error', 'message' => 'Bài kiểm tra không tồn tại.'], 404);
         }
 
+        $teacherId = session()->get('user_id');
+        $schoolId  = session()->get('school_id');
+        $class     = $this->classModel->find($test['class_id']);
+        if (!$class || ((int)$test['teacher_id'] !== (int)$teacherId && (int)$class['school_id'] !== (int)$schoolId)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Bạn không có quyền thực hiện thao tác này.'], 403);
+        }
+
         $quantity = (int)$this->request->getPost('quantity');
         if ($quantity < 1) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Số lượng phải lớn hơn 0.'], 400);
@@ -1452,44 +1502,73 @@ class Teacher extends BaseController
         foreach ($students as $st) {
             $realCount = $this->participantModel->countRealTestsByStudent((int)$st['id'], $testId);
             $studentData[] = [
-                'id'         => $st['id'],
+                'id'         => (int)$st['id'],
                 'full_name'  => $st['full_name'],
                 'username'   => $st['username'],
                 'real_count' => $realCount,
             ];
         }
 
-        // 2. Sort by real_count ascending
-        usort($studentData, function ($a, $b) {
-            return $a['real_count'] <=> $b['real_count'];
-        });
+        // 2. Nhóm học sinh theo số lượt thi thật (real_count) tăng dần
+        $groups = [];
+        foreach ($studentData as $st) {
+            $rc = (int)$st['real_count'];
+            $groups[$rc][] = $st;
+        }
+        ksort($groups, SORT_NUMERIC);
 
-        // 3. Find the median of real_count values
-        $counts = array_column($studentData, 'real_count');
-        $n = count($counts);
-        if ($n % 2 === 0) {
-            $median = ($counts[$n / 2 - 1] + $counts[$n / 2]) / 2;
-        } else {
-            $median = $counts[intdiv($n, 2)];
+        // 3. Lấy dần các nhóm từ nhỏ đến lớn cho đến khi danh sách đạt ít nhất (quantity + 3)
+        $threshold       = $quantity + 3;
+        $candidatePool   = [];
+        $outsideStudents = [];
+
+        foreach ($groups as $rc => $stList) {
+            if (count($candidatePool) < $threshold) {
+                foreach ($stList as $st) {
+                    $st['is_outside'] = false;
+                    $candidatePool[] = $st;
+                }
+            } else {
+                foreach ($stList as $st) {
+                    $st['is_outside'] = true;
+                    $outsideStudents[] = $st;
+                }
+            }
         }
 
-        // 4. Filter students with real_count <= median
-        $pool = array_filter($studentData, function ($st) use ($median) {
-            return $st['real_count'] <= $median;
-        });
-        $pool = array_values($pool);
+        $basePoolSize = count($candidatePool);
 
-        // 5. Shuffle and pick N students
-        shuffle($pool);
-        $picked = array_slice($pool, 0, min($quantity, count($pool)));
+        // 4. Nếu vẫn còn học sinh bên ngoài thì chọn ngẫu nhiên 3 học sinh bên ngoài đưa vào danh sách chọn
+        $outsidePicked = [];
+        if (!empty($outsideStudents)) {
+            shuffle($outsideStudents);
+            $pickOutsideCount = min(3, count($outsideStudents));
+            $outsidePicked    = array_slice($outsideStudents, 0, $pickOutsideCount);
+            foreach ($outsidePicked as $st) {
+                $candidatePool[] = $st;
+            }
+        }
+
+        // 5. Trộn ngẫu nhiên danh sách chọn và bốc ra đúng số lượng học sinh yêu cầu
+        shuffle($candidatePool);
+        $picked = array_slice($candidatePool, 0, min($quantity, count($candidatePool)));
+
+        // Tính trung vị để tương thích giao diện / thống kê
+        $counts = array_column($studentData, 'real_count');
+        sort($counts, SORT_NUMERIC);
+        $n = count($counts);
+        $median = ($n % 2 === 0) ? ($counts[$n / 2 - 1] + $counts[$n / 2]) / 2 : $counts[intdiv($n, 2)];
 
         return $this->response->setJSON([
-            'status'       => 'success',
-            'picked'       => $picked,
-            'total_class'  => count($studentData),
-            'median'       => $median,
-            'pool_size'    => count($pool),
-            'requested'    => $quantity,
+            'status'               => 'success',
+            'picked'               => $picked,
+            'total_class'          => count($studentData),
+            'median'               => $median,
+            'pool_size'            => count($candidatePool),
+            'base_pool_size'       => $basePoolSize,
+            'outside_picked_count' => count($outsidePicked),
+            'outside_total'        => count($outsideStudents),
+            'requested'            => $quantity,
         ]);
     }
 

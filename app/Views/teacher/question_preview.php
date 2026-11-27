@@ -40,10 +40,17 @@
                 </a>
             <?php endif; ?>
 
-            <a href="<?= base_url('teacher/questions') ?>" 
-               class="btn btn-light rounded-xl font-semibold px-3.5 py-2 border border-gray-200">
-                <i class="fa-solid fa-arrow-left me-1"></i> Quay lại
-            </a>
+            <?php if (!empty($fromTestId)): ?>
+                <a href="<?= base_url("teacher/tests/pool/{$fromTestId}") ?>" 
+                   class="btn btn-light rounded-xl font-semibold px-3.5 py-2 border border-gray-200">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Quay lại Kho câu hỏi
+                </a>
+            <?php else: ?>
+                <a href="<?= base_url('teacher/questions') ?>" 
+                   class="btn btn-light rounded-xl font-semibold px-3.5 py-2 border border-gray-200">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Quay lại Ngân hàng câu hỏi
+                </a>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -82,11 +89,33 @@
             </div>
         </div>
 
-        <!-- CÁC PHƯƠNG ÁN LỰA CHỌN -->
+        <!-- CÁC PHƯƠNG ÁN LỰA CHỌN & THỐNG KÊ -->
         <div class="space-y-3 pt-2">
-            <label class="text-xs uppercase font-bold text-gray-400 mb-2 block">
-                <i class="fa-solid fa-list-check text-indigo-500 me-1"></i> Các phương án lựa chọn
-            </label>
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <label class="text-xs uppercase font-bold text-gray-400 block mb-0">
+                    <i class="fa-solid fa-list-check text-indigo-500 me-1"></i> Các phương án lựa chọn & Thống kê chọn đáp án
+                </label>
+                <?php
+                    $isTestScope = !empty($fromTestId);
+                    $scopeTotal  = $isTestScope ? ($optionStats['test_total'] ?? 0) : ($optionStats['total'] ?? 0);
+                    $globalTotal = $optionStats['total'] ?? 0;
+                    $picked      = $isTestScope ? ($questionStats['test_picked'] ?? 0) : ($questionStats['picked'] ?? 0);
+                    $correct     = $isTestScope ? ($questionStats['test_correct'] ?? 0) : ($questionStats['correct'] ?? 0);
+                    $rate        = $picked > 0 ? round(($correct / $picked) * 100) : 0;
+                ?>
+                <div class="text-xs text-gray-500">
+                    <?php if ($isTestScope && !empty($fromTest['title'])): ?>
+                        <span>Bài kiểm tra: <strong class="text-indigo-600"><?= esc($fromTest['title']) ?></strong> (<strong><?= $scopeTotal ?></strong> lượt làm)</span>
+                        <?php if ($globalTotal > $scopeTotal): ?>
+                            <span class="text-gray-400 ms-1">[Toàn hệ thống: <?= $globalTotal ?> lượt]</span>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <span>Tổng số lượt thi: <strong class="text-indigo-600"><?= $globalTotal ?></strong> lượt làm</span>
+                    <?php endif; ?>
+                    | Tỉ lệ đúng: <span class="badge bg-emerald-600 text-white font-bold ms-1"><?= "{$correct}/{$picked}" ?> (<?= $rate ?>%)</span>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <?php
                     $options = [
@@ -98,22 +127,56 @@
                     foreach ($options as $optKey => $optVal):
                         if (empty($optVal) && $optVal !== '0') continue;
                         $isCorrect = (strtoupper($question['correct_option']) === $optKey);
+
+                        $optCount       = $isTestScope ? ($optionStats['options'][$optKey]['test'] ?? 0) : ($optionStats['options'][$optKey]['total'] ?? 0);
+                        $globalOptCount = $optionStats['options'][$optKey]['total'] ?? 0;
+                        $percent        = $scopeTotal > 0 ? round(($optCount / $scopeTotal) * 100) : 0;
                 ?>
-                    <div class="p-4 rounded-xl border-2 <?= $isCorrect ? 'border-emerald-500 bg-emerald-50/40 text-emerald-900 shadow-sm' : 'border-gray-200 bg-white text-gray-800' ?> flex items-start gap-3">
-                        <span class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 <?= $isCorrect ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600' ?>">
-                            <?= $optKey ?>
-                        </span>
-                        <div class="flex-grow pt-1 text-sm font-medium">
-                            <?= format_option_content($optVal) ?>
-                        </div>
-                        <?php if ($isCorrect): ?>
-                            <span class="badge bg-emerald-600 text-white text-xs px-2.5 py-1 rounded-md shrink-0">
-                                <i class="fa-solid fa-check me-1"></i> Đúng
+                    <div class="p-4 rounded-xl border-2 <?= $isCorrect ? 'border-emerald-500 bg-emerald-50/40 text-emerald-900 shadow-sm' : 'border-gray-200 bg-white text-gray-800' ?> flex flex-col justify-between">
+                        <div class="flex items-start gap-3">
+                            <span class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 <?= $isCorrect ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600' ?>">
+                                <?= $optKey ?>
                             </span>
-                        <?php endif; ?>
+                            <div class="flex-grow pt-1 text-sm font-medium">
+                                <?= format_option_content($optVal) ?>
+                            </div>
+                            <?php if ($isCorrect): ?>
+                                <span class="badge bg-emerald-600 text-white text-xs px-2.5 py-1 rounded-md shrink-0">
+                                    <i class="fa-solid fa-check me-1"></i> Đúng
+                                </span>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Thống kê số lần HS chọn phương án này -->
+                        <div class="mt-3 pt-2.5 border-t <?= $isCorrect ? 'border-emerald-200/70' : 'border-gray-100' ?>">
+                            <div class="flex items-center justify-between text-xs mb-1">
+                                <span class="text-gray-600">
+                                    <i class="fa-solid fa-user-check me-1 <?= $isCorrect ? 'text-emerald-600' : 'text-indigo-500' ?>"></i>
+                                    HS chọn: <strong class="<?= $isCorrect ? 'text-emerald-700' : 'text-indigo-700' ?>"><?= "{$optCount}/{$scopeTotal}" ?></strong>
+                                    <span class="text-gray-500 font-semibold">(<?= $percent ?>%)</span>
+                                    <?php if ($isTestScope && $globalTotal > $scopeTotal): ?>
+                                        <span class="text-gray-400 ms-1 text-[11px]" title="Toàn hệ thống: <?= $globalOptCount ?>/<?= $globalTotal ?>">
+                                            [Chung: <?= "{$globalOptCount}/{$globalTotal}" ?>]
+                                        </span>
+                                    <?php endif; ?>
+                                </span>
+                            </div>
+                            <div class="w-full bg-gray-200/80 rounded-full h-2 overflow-hidden">
+                                <div class="<?= $isCorrect ? 'bg-emerald-500' : 'bg-indigo-500' ?> h-2 rounded-full transition-all duration-300" style="width: <?= $percent ?>%"></div>
+                            </div>
+                        </div>
                     </div>
                 <?php endforeach; ?>
             </div>
+
+            <?php
+                $unansweredCount = $isTestScope ? ($optionStats['unanswered']['test'] ?? 0) : ($optionStats['unanswered']['total'] ?? 0);
+            ?>
+            <?php if ($unansweredCount > 0): ?>
+                <div class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-center justify-between">
+                    <span><i class="fa-solid fa-triangle-exclamation me-1"></i> Có <strong><?= $unansweredCount ?>/<?= $scopeTotal ?></strong> lượt làm bài không chọn phương án nào (bỏ trống hoặc hết giờ nộp bài).</span>
+                </div>
+            <?php endif; ?>
         </div>
 
         <!-- LỜI GIẢI / GIẢI THÍCH CHI TIẾT -->
